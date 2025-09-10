@@ -14,6 +14,7 @@ from ..core.logging import get_logger
 from ..db.session import get_db
 from ..models.user import User
 from ..services.auth_service import AuthService
+from ..services.webhook_service import WebhookService
 
 logger = get_logger(__name__)
 
@@ -195,9 +196,19 @@ async def get_auth_service(
     return AuthService(db)
 
 
+async def get_webhook_service(
+    db: AsyncSession = Depends(get_db)
+) -> WebhookService:
+    """
+    Get webhook service instance.
+    """
+    return WebhookService(db)
+
+
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentUserOptional = Annotated[Optional[User], Depends(get_current_user_optional)]
 ActiveUser = Annotated[User, Depends(require_active_user)]
 CorrelationID = Annotated[str, Depends(get_correlation_id)]
 WebhookSignature = Annotated[Dict[str, Any], Depends(verify_webhook_signature)]
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+WebhookServiceDep = Annotated[WebhookService, Depends(get_webhook_service)]

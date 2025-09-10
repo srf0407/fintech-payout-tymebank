@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
 
 from ..deps import AuthServiceDep, CorrelationID, get_current_user
-from ..schemas.auth import (
+from ...schemas.auth import (
     OAuthLoginRequest,
     OAuthLoginResponse,
     OAuthCallbackRequest,
@@ -18,8 +18,8 @@ from ..schemas.auth import (
     LogoutResponse,
     UserResponse
 )
-from ..core.logging import get_logger
-from ..core.security import sanitize_log_data
+from ...core.logging import get_logger
+from ...core.security import sanitize_log_data
 
 logger = get_logger(__name__)
 
@@ -161,7 +161,7 @@ async def google_callback(
         
         redirect_uri = f"{request.base_url}auth/callback/google"
         
-        from ..core.security import generate_code_verifier
+        from ...core.security import generate_code_verifier
         code_verifier = generate_code_verifier()
         
         logger.info("Processing Google OAuth callback", extra={

@@ -15,19 +15,19 @@ from ..deps import (
     AuthServiceDep,
     WebhookSignature
 )
-from ..schemas.payouts import (
+from ...schemas.payouts import (
     PayoutCreate,
     PayoutRead,
     PayoutList
 )
-from ..schemas.webhooks import (
+from ...schemas.webhooks import (
     WebhookRequest,
     WebhookResponse
 )
-from ..services.payout_service import PayoutService
-from ..services.webhook_service import WebhookService
-from ..core.logging import get_logger
-from ..core.security import sanitize_log_data
+from ...services.payout_service import PayoutService
+from ...services.webhook_service import WebhookService
+from ...core.logging import get_logger
+from ...core.security import sanitize_log_data
 
 logger = get_logger(__name__)
 
