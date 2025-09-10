@@ -320,3 +320,58 @@ async def get_current_user_info(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get user information"
         )
+
+
+@router.post("/test-token", response_model=TokenResponse)
+async def create_test_token(
+    correlation_id: CorrelationID,
+    auth_service: AuthServiceDep
+) -> TokenResponse:
+    """
+    Create a test JWT token for development/testing purposes.
+    
+    This endpoint creates a test user in the database and returns a valid JWT token.
+    Use this for testing protected endpoints in development.
+    """
+    try:
+        logger.info("Test token creation requested", extra={
+            "correlation_id": correlation_id
+        })
+        
+        # Create a test user using GoogleUserInfo
+        from ...schemas.auth import GoogleUserInfo
+        test_user_info = GoogleUserInfo(
+            id="test-google-id-123",
+            email="test@example.com",
+            verified_email=True,
+            name="Test User",
+            given_name="Test",
+            family_name="User",
+            picture=None,
+            locale="en"
+        )
+        
+        # Create or get test user using the private method
+        user = await auth_service._create_or_update_user(test_user_info, correlation_id)
+        
+        # Generate token
+        token_data = await auth_service.refresh_user_token(user)
+        
+        logger.info("Test token created successfully", extra={
+            "correlation_id": correlation_id,
+            "user_id": str(user.id),
+            "email": user.email
+        })
+        
+        return token_data
+        
+    except Exception as e:
+        logger.error("Failed to create test token", extra={
+            "correlation_id": correlation_id,
+            "error": str(e)
+        })
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create test token: {str(e)}"
+        )
