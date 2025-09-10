@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     google_redirect_uri: str = "http://localhost:8000/auth/callback/google"
     
     webhook_secret: str
-    webhook_timeout_seconds: int = 300  # 5 minutes
+    webhook_timeout_seconds: int = 300  
     
     rate_limit_per_minute: int = 10
     
@@ -51,8 +51,14 @@ class Settings(BaseSettings):
     def validate_db_url(cls, v: str) -> str:
         if not v:
             raise ValueError("DATABASE_URL is required")
-        if not (v.startswith("postgresql+asyncpg://") or v.startswith("postgresql://")):
-            raise ValueError("database_url must start with postgresql:// or postgresql+asyncpg://")
+        valid_prefixes = [
+            "postgresql+asyncpg://",
+            "postgresql://",
+            "sqlite+aiosqlite://",
+            "sqlite://"
+        ]
+        if not any(v.startswith(prefix) for prefix in valid_prefixes):
+            raise ValueError("database_url must start with postgresql://, postgresql+asyncpg://, sqlite://, or sqlite+aiosqlite://")
         return v
 
 settings = Settings()

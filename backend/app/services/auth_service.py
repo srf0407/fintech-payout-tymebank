@@ -5,6 +5,7 @@ Authentication service for OAuth 2.0 flows and user management.
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from uuid import UUID
+from urllib.parse import urlencode
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -16,7 +17,10 @@ from ..core.security import (
     get_google_user_info,
     generate_oauth_state,
     generate_oauth_nonce,
-    validate_oauth_state
+    validate_oauth_state,
+    generate_code_verifier,
+    generate_code_challenge,
+    generate_correlation_id
 )
 from ..core.config import settings
 from ..core.logging import get_logger
@@ -37,6 +41,7 @@ class AuthService:
         Initiate OAuth login flow with secure state and PKCE.
         Returns authorization URL and security parameters.
         """
+        correlation_id = generate_correlation_id()
         try:
             state = generate_oauth_state()
             nonce = generate_oauth_nonce()
@@ -58,6 +63,7 @@ class AuthService:
             auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(auth_params)}"
             
             logger.info("OAuth login initiated", extra={
+                "correlation_id": correlation_id,
                 "redirect_uri": redirect_uri,
                 "state": state[:8] + "...",
                 "nonce": nonce[:8] + "..."
@@ -67,7 +73,8 @@ class AuthService:
                 "authorization_url": auth_url,
                 "state": state,
                 "code_verifier": code_verifier,
-                "expires_at": datetime.utcnow() + timedelta(minutes=10)
+                "expires_at": datetime.utcnow() + timedelta(minutes=10),
+                "correlation_id": correlation_id
             }
             
         except Exception as e:
@@ -88,8 +95,13 @@ class AuthService:
         Handle OAuth callback and exchange code for tokens.
         Creates or updates user and returns access token.
         """
+        correlation_id = generate_correlation_id()
         try:
             if not validate_oauth_state(state):
+                logger.warning("Invalid OAuth state", extra={
+                    "correlation_id": correlation_id,
+                    "state": state[:8] + "..."
+                })
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid or expired state parameter"
@@ -100,7 +112,7 @@ class AuthService:
             user_info = await get_google_user_info(token_data["access_token"])
             google_user = GoogleUserInfo(**user_info)
             
-            user = await self._create_or_update_user(google_user)
+            user = await self._create_or_update_user(google_user, correlation_id)
             
             token_payload = {
                 "sub": str(user.id),
@@ -113,6 +125,7 @@ class AuthService:
             access_token = create_access_token(token_payload)
             
             logger.info("OAuth callback successful", extra={
+                "correlation_id": correlation_id,
                 "user_id": str(user.id),
                 "email": user.email,
                 "google_id": user.google_id
@@ -134,7 +147,7 @@ class AuthService:
                 detail="OAuth callback processing failed"
             )
     
-    async def _create_or_update_user(self, google_user: GoogleUserInfo) -> User:
+    async def _create_or_update_user(self, google_user: GoogleUserInfo, correlation_id: str) -> User:
         """
         Create or update user from Google user info.
         """
@@ -147,7 +160,10 @@ class AuthService:
                 user.email = google_user.email
                 user.name = google_user.name
                 user.picture_url = google_user.picture
-                logger.info("Updated existing user", extra={"user_id": str(user.id)})
+                logger.info("Updated existing user", extra={
+                    "correlation_id": correlation_id,
+                    "user_id": str(user.id)
+                })
             else:
                 user = User(
                     google_id=google_user.id,
@@ -156,7 +172,10 @@ class AuthService:
                     picture_url=google_user.picture
                 )
                 self.db.add(user)
-                logger.info("Created new user", extra={"email": google_user.email})
+                logger.info("Created new user", extra={
+                    "correlation_id": correlation_id,
+                    "email": google_user.email
+                })
             
             await self.db.commit()
             await self.db.refresh(user)
@@ -166,6 +185,7 @@ class AuthService:
         except Exception as e:
             await self.db.rollback()
             logger.error("Failed to create/update user", extra={
+                "correlation_id": correlation_id,
                 "error": str(e),
                 "google_id": google_user.id,
                 "email": google_user.email

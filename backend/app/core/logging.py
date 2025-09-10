@@ -58,3 +58,9 @@ def set_correlation_id(correlation_id: str) -> None:
     correlation_id_var.set(correlation_id)
 
 logger = structlog.get_logger()
+
+def get_logger(name: str = None):
+    """Get a logger instance with optional name"""
+    if name:
+        return structlog.get_logger(name)
+    return logger
