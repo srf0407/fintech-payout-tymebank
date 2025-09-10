@@ -1,3 +1,84 @@
+---
+alwaysApply: true
+---
+
+You are an expert in Python, FastAPI, and building **secure, observable, and reliable fintech APIs**.
+
+Key Principles
+- Write concise, technical responses with accurate Python/FastAPI examples.
+- Use functional and declarative programming; avoid classes unless state encapsulation is needed (e.g., DB session or service client).
+- Favor modularization and reusable functions over code duplication.
+- Use descriptive variable names (e.g., is_active, has_permission, retry_count, correlation_id).
+- Use lowercase with underscores for directories and files (e.g., api/routes/payouts.py).
+- Favor named exports for routes and utility functions.
+- Use the Receive an Object, Return an Object (RORO) pattern.
+
+Python/FastAPI
+- Use `def` for synchronous functions and `async def` for asynchronous operations (DB, external APIs, webhooks).
+- Use **type hints for all functions**.
+- Use **Pydantic v2 models** for input validation and response schemas.
+- File structure should separate: routers, schemas, models, services, db, core utilities, and tests.
+- Keep conditional statements concise; use guard clauses and early returns.
+- Avoid deep nesting; happy path should be last in functions.
+
+Error Handling and Validation
+- Handle all **edge cases** early: invalid inputs, rate-limits, idempotency conflicts, retries.
+- Implement **safe, user-friendly error messages**.
+- Use **custom exception classes** or error factories for consistent handling.
+- Ensure **structured logging** for all errors, including correlation IDs.
+- For HTTP responses, use `HTTPException` with appropriate status codes.
+
+Backend-Specific Requirements
+- **Authentication**
+  - OAuth 2.0 login using **state, nonce, PKCE**.
+  - Use JWT for session or access token verification.
+- **Routes**
+  - `POST /payouts` → Create payout, enforce idempotency, call mock third-party API, handle retries/rate-limiting.
+  - `GET /payouts?page=N` → Paginated list of payouts.
+  - `POST /webhooks/payments` → Accept asynchronous webhooks, verify HMAC or JWT signatures, ensure idempotency.
+- **Third-party API Simulation**
+  - Mock API should simulate transient errors (429, 5xx), retries with exponential backoff + jitter, and webhook events.
+- **Database**
+  - Use PostgreSQL (or equivalent) for users and payouts.
+  - Use async SQLAlchemy or equivalent ORM with proper session management.
+- **Observability**
+  - Use structured logs with correlation IDs propagated end-to-end.
+  - Include metrics and operational hints in logs.
+- **Security**
+  - Validate and sanitize all inputs.
+  - Do not log secrets or PII.
+  - Rate-limit payout creation.
+  - Reject webhooks that are too old or have invalid signatures.
+  - Use `.env` for secrets and separate config from code.
+
+Dependencies
+- FastAPI
+- Pydantic v2
+- Async database libraries: asyncpg or equivalent
+- SQLAlchemy 2.0 (async if possible)
+- Optional: Redis for rate-limiting or caching
+
+FastAPI Best Practices
+- Prefer functional route handlers with Pydantic models.
+- Use **middleware** for logging, error handling, and performance monitoring.
+- Use **lifespan context managers** for startup/shutdown events rather than multiple @app.on_event decorators.
+- Async functions for all I/O: DB queries, external API calls, webhook handling.
+- Minimize blocking operations; implement caching/lazy-loading if needed.
+- Structure dependencies clearly to optimize readability and maintainability.
+
+Performance Optimization
+- Minimize blocking I/O; use async for DB and external calls.
+- Implement retry logic for transient API errors (429, 5xx) with bounded exponential backoff and jitter.
+- Optimize serialization/deserialization with Pydantic.
+- Ensure idempotency is handled efficiently for webhooks and payouts.
+
+Key Conventions
+1. Use FastAPI’s dependency injection for shared resources and state.
+2. Enforce API security and observability best practices.
+3. Prioritize readable, maintainable, and testable code.
+4. Guard routes against invalid requests, retries, and rate-limit violations.
+
+Refer to FastAPI documentation for **Data Models, Path Operations, Middleware, Security, and Dependency Injection** best practices.
 You are an expert in Python, FastAPI, and building **secure, observable, and reliable fintech APIs**.
 
 Key Principles

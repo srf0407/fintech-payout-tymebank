@@ -1,101 +1,109 @@
-# Project Scope: AI-Assisted Full-Stack Fintech App
-
-## Overview
-This project is a **full-stack fintech application** where users can log in using OAuth, create payout requests, and track the status of payouts.  
-The backend simulates a third-party payments provider, including asynchronous webhook updates, retries, rate-limiting, and idempotency.  
-
-**Goal:** Demonstrate the ability to design and build a secure, observable, reliable system with thoughtful error handling, logging, input validation, and modular architecture.
-
 ---
-
-## Frontend Requirements
-- **Public page**
-  - OAuth login (GitHub or Google preferred)
-- **Authenticated dashboard**
-  - Display user profile (from OAuth provider)
-  - Create payout (fields: amount + currency)
-  - Paginated list of payouts with live status updates
-- **Error handling**
-  - Show user-friendly messages (no raw stack traces)
-- **Tech Stack**
-  - React with TypeScript
-
+alwaysApply: true
 ---
+# AI-Assisted Full-Stack Fintech App Rules
 
-## Backend Requirements
-- **Authentication**
-  - OAuth 2.0 login
-  - Use secure mechanisms: state, nonce, PKCE
-- **API Endpoints**
-  1. `POST /payouts`  
-     - Create a payout  
-     - Call a mock third-party API  
-     - Enforce **idempotency**
-  2. `GET /payouts?page=N`  
-     - Return paginated list of payouts
-  3. `POST /webhooks/payments`  
-     - Accept asynchronous webhook updates  
-     - Verify **HMAC or JWT signature**
-- **Third-party API Simulation**
-  - Mock API responses including:
-    - retries for transient errors (429, 5xx)
-    - rate limiting
-    - webhooks
-- **Business Logic**
-  - Retry with **bounded exponential backoff + jitter**
-  - Idempotent webhook handler
-- **Database**
-  - Store users and payouts (PostgreSQL recommended)
-- **Observability**
-  - Structured logs with correlation IDs
-  - Metrics and operational hints in logs
-- **Security**
-  - Do not log secrets or PII
-  - Input validation and sanitization
-  - Rate-limit payout creation
-  - Verify webhook timestamps (reject if too old)
-  - Use `.env` and separate config (no secrets in source code)
+## Key Principles
+- Deliver **secure, observable, and reliable** full-stack fintech application with clear documentation.
+- Prioritize **clarity, completeness, and engineering maturity** over pixel-perfect UI or over-engineered systems.
+- Balance **security, integration, observability, and productivity** in design and implementation.
+- Timebox: ~3 focused working days.
 
----
+## Project Requirements
+### Frontend
+- **Tech Stack**: React (TypeScript recommended).
+- **Public Page**: OAuth 2.0 login (GitHub/Google preferred) with state, nonce, PKCE.
+- **Authenticated Dashboard**:
+  - Display user profile from OAuth provider.
+  - Form to create payout (amount, currency).
+  - Paginated list of payouts with live status updates.
+- **Error Handling**: Show user-friendly error messages (no raw stack traces).
+- **Conventions**:
+  - Use functional components with hooks.
+  - Avoid class-based components unless state encapsulation is required.
+  - Use TypeScript interfaces for props and state.
+  - Use Tailwind CSS for styling (optional).
+
+### Backend
+- **Tech Stack**: FastAPI (Python), PostgreSQL, asyncpg or SQLAlchemy 2.0 (async).
+- **Authentication**:
+  - OAuth 2.0 with state, nonce, PKCE.
+  - JWT for access token verification.
+- **Routes**:
+  - `POST /payouts`: Create payout, enforce idempotency, call mock third-party API, handle retries/rate-limiting.
+  - `GET /payouts?page=N`: Paginated list of payouts.
+  - `POST /webhooks/payments`: Accept asynchronous webhooks, verify HMAC or JWT signatures, ensure idempotency.
+- **Third-Party API Simulation**:
+  - Mock API to simulate transient errors (429, 5xx), retries with exponential backoff + jitter, and webhook events.
+  - Implement in-process handler or lightweight mock service.
+- **Database**:
+  - Use PostgreSQL for users and payouts.
+- **File Structure**:
+  - Separate `api/routers`, `schemas`, `models`, `services`, `db`, `utils`, `tests`.
+  - Use lowercase with underscores (e.g., `api/routers/payouts.py`).
+
+
+### Observability
+- Implement **structured logging** with correlation IDs propagated across frontend and backend.
+- Include basic metrics (e.g., request duration, error counts) in logs.
+- Add operational hints (e.g., request context, failure reasons) in logs.
+
+### Security
+- Validate and sanitize all inputs.
+- Do not log secrets or PII.
+- Rate-limit `POST /payouts` (Redis recommended for rate-limiting).
+- Verify webhook signatures (HMAC or JWT) and reject if timestamp is too old (>5 minutes).
+- Use `.env` for secrets; include `.env.example` in repository.
+- Separate config from code.
+
+### Performance
+- Minimize blocking I/O; use async for DB and external API calls.
+- Implement retry logic for transient errors (429, 5xx) with bounded exponential backoff and jitter.
+- Optimize Pydantic serialization/deserialization.
+- Ensure idempotency for payouts and webhooks is efficient (e.g., database checks).
+
+## Dependencies
+- **Frontend**: React, TypeScript, Tailwind CSS (optional), Axios or Fetch for API calls.
+- **Backend**: FastAPI, Pydantic v2, asyncpg or SQLAlchemy 2.0 (async), python-jose (JWT), python-dotenv.
+- **Optional**: Redis for rate-limiting or caching.
+
+## FastAPI Best Practices
+- Use functional route handlers with Pydantic models.
+- Implement **middleware** for logging, error handling, and performance monitoring.
+- Use **lifespan context managers** for startup/shutdown (avoid `@app.on_event`).
+- Structure dependencies using FastAPI’s dependency injection for shared resources.
+- Handle edge cases early: invalid inputs, rate-limits, idempotency conflicts.
+
+## Error Handling
+- Use **custom exception classes** or error factories for consistency.
+- Raise `HTTPException` with appropriate status codes and user-friendly messages.
+- Log errors with correlation IDs and context; avoid exposing sensitive details.
 
 ## Deliverables
-1. **Code repository**
-   - Public Git repository
-2. **Documentation**
-   - `README.md` with setup, test, and usage instructions
-   - OpenAPI spec for API
-   - Postman collection or `.http` files for key flows
-3. **Observability**
-   - Logs demonstrating correlation IDs across boundaries
-4. **Tests**
-   - Minimal tests for:
-     - Idempotent payout creation
-     - Webhook signature and timestamp verification
-5. **AI Usage**
-   - `ai_usage.md` documenting:
-     - Tools used
-     - Key prompts and outputs
-     - Mistakes and corrections
-     - How outputs were validated
+- **Code**: Public GitHub repository with clear file structure.
+- **README.md**: Setup, test, and usage instructions, including `.env.example`.
+- **API Specification**: OpenAPI format (generated by FastAPI or manual).
+- **Postman Collection** or `.http` files for key flows (`POST /payouts`, `GET /payouts`, `POST /webhooks/payments`).
+- **Logs**: Demonstrate correlation IDs across frontend and backend.
+- **Tests**:
+  - Idempotent payout creation.
+  - Webhook signature and timestamp verification.
+- **AI Usage Document** (`ai_usage.md`):
+  - List AI tools used (e.g., ChatGPT, Copilot, Claude, Cursor).
+  - Describe initial constraints/goals shared with AI.
+  - Document key prompts, accepted/rejected outputs, and reasons.
+  - Note AI mistakes and corrections.
+  - Explain how AI outputs were validated (e.g., manual review, tests).
 
----
+## Key Conventions
+1. Prioritize **secure and observable flows** (OAuth, JWT, logging, metrics).
+2. Ensure **thoughtful error handling** for edge cases and user experience.
+3. Implement **smart retry logic** and API hygiene (idempotency, rate-limiting).
+4. Document **AI collaboration** transparently in `ai_usage.md`.
+5. Write **readable, maintainable, testable code** using modular functions and clear naming.
 
-## Tech Stack
-- **Backend:** FastAPI (Python)  
-- **Frontend:** React with TypeScript  
-- **Database:** PostgreSQL (or equivalent)  
-- **Optional:** Stripe test mode (if available)  
-
----
-
-## Constraints & Notes
-- Do not simulate real money movement; focus on control flow.  
-- Keep frontend and backend modular and testable.  
-- Prioritize clarity, completeness, and engineering maturity.  
-- The backend should be self-contained under `backend/app/`.  
-- The frontend should be self-contained under `frontend/src/`.  
-- Ensure secure handling of all sensitive data and API keys.
-
----
-
-**End of Scope**
+## Notes
+- Mock third-party payments API (no real Stripe integration required).
+- Focus on control flow, not actual money movement.
+- Explain major tech stack deviations in `README.md`.
+- Refer to FastAPI documentation for **Data Models, Path Operations, Middleware, Security, Dependency Injection**.
