@@ -129,6 +129,14 @@ async def verify_webhook_signature(
     try:
         body = await request.body()
         
+        # Log the signature verification attempt
+        logger.info("Verifying webhook signature", extra={
+            "signature_type": x_signature_type,
+            "signature": x_signature[:20] + "..." if len(x_signature) > 20 else x_signature,
+            "body_length": len(body),
+            "correlation_id": getattr(request.state, "correlation_id", None)
+        })
+        
         if x_timestamp:
             if not verify_webhook_timestamp(x_timestamp, settings.webhook_timeout_seconds):
                 raise HTTPException(
@@ -139,6 +147,11 @@ async def verify_webhook_signature(
         if x_signature_type.startswith("hmac_"):
             algorithm = x_signature_type.replace("hmac_", "")
             if not verify_webhook_signature_hmac(body, x_signature, settings.webhook_secret, algorithm):
+                logger.warning("HMAC signature verification failed", extra={
+                    "signature_type": x_signature_type,
+                    "algorithm": algorithm,
+                    "correlation_id": getattr(request.state, "correlation_id", None)
+                })
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid webhook signature"
@@ -155,6 +168,11 @@ async def verify_webhook_signature(
                 detail=f"Unsupported signature type: {x_signature_type}"
             )
         
+        logger.info("Webhook signature verified successfully", extra={
+            "signature_type": x_signature_type,
+            "correlation_id": getattr(request.state, "correlation_id", None)
+        })
+        
         return signature_data
         
     except WebhookVerificationError as e:
@@ -170,6 +188,7 @@ async def verify_webhook_signature(
     except Exception as e:
         logger.error("Webhook verification error", extra={
             "error": str(e),
+            "signature_type": x_signature_type,
             "correlation_id": getattr(request.state, "correlation_id", None)
         })
         raise HTTPException(
