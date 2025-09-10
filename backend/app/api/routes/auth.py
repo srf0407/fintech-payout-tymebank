@@ -7,7 +7,7 @@ from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
 
-from ..deps import AuthServiceDep, CorrelationID
+from ..deps import AuthServiceDep, CorrelationID, get_current_user
 from ..schemas.auth import (
     OAuthLoginRequest,
     OAuthLoginResponse,
@@ -15,7 +15,8 @@ from ..schemas.auth import (
     TokenResponse,
     AuthErrorResponse,
     LogoutRequest,
-    LogoutResponse
+    LogoutResponse,
+    UserResponse
 )
 from ..core.logging import get_logger
 from ..core.security import sanitize_log_data
@@ -201,8 +202,8 @@ async def google_callback(
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
-    auth_service: AuthServiceDep,
     correlation_id: CorrelationID,
+    auth_service: AuthServiceDep,
     current_user = Depends(get_current_user)
 ) -> TokenResponse:
     """
@@ -245,8 +246,8 @@ async def refresh_token(
 @router.post("/logout", response_model=LogoutResponse)
 async def logout(
     request_data: LogoutRequest,
-    auth_service: AuthServiceDep,
     correlation_id: CorrelationID,
+    auth_service: AuthServiceDep,
     current_user = Depends(get_current_user)
 ) -> LogoutResponse:
     """
@@ -291,8 +292,8 @@ async def logout(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
-    current_user = Depends(get_current_user),
-    correlation_id: CorrelationID
+    correlation_id: CorrelationID,
+    current_user = Depends(get_current_user)
 ) -> UserResponse:
     """
     Get current user information.
@@ -319,6 +320,3 @@ async def get_current_user_info(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get user information"
         )
-
-
-from ..deps import get_current_user

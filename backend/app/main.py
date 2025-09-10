@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from .core.config import settings
 from .core.logging import configure_logging, logger, set_correlation_id, get_correlation_id
 from .db.session import engine, Base
+from .api.routes import auth, payouts, webhooks
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -76,6 +77,10 @@ async def health_check():
     """Health check endpoint"""
     logger.info("health_check_requested")
     return {"status": "healthy", "correlation_id": get_correlation_id()}
+
+app.include_router(auth.router)
+app.include_router(payouts.router)
+app.include_router(webhooks.router)
 
 @app.get("/")
 async def root():
