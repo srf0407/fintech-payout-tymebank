@@ -93,23 +93,3 @@ async def health_check():
     logger.info("health_check_requested")
     return {"status": "healthy", "correlation_id": get_correlation_id()}
 
-
-@app.get("/test-cors")
-async def test_cors():
-    """Test CORS endpoint"""
-    return {"message": "CORS test successful"}
-
-@app.get("/")
-async def root():
-    """Root endpoint"""
-    logger.info("root_endpoint_accessed")
-    return {"message": "Fintech Payouts API", "version": "1.0.0"}
-
-@app.get("/webhook-status")
-async def webhook_status():
-    """Check webhook callback registration status"""
-    return {
-        "webhook_callback_registered": webhook_callback_service.is_registered,
-        "webhook_url": webhook_callback_service.webhook_url,
-        "status": "ready" if webhook_callback_service.is_registered else "not_ready"
-    }

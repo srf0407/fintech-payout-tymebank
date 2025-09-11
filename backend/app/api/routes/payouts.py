@@ -11,21 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..deps import (
     CurrentUser, 
     CorrelationID, 
-    get_db,
-    AuthServiceDep,
-    WebhookSignature
+    get_db
 )
 from ...schemas.payouts import (
     PayoutCreate,
     PayoutRead,
     PayoutList
 )
-from ...schemas.webhooks import (
-    WebhookRequest,
-    WebhookResponse
-)
 from ...services.payout_service import PayoutService
-from ...services.webhook_service import WebhookService
 from ...core.logging import get_logger
 from ...core.security import sanitize_log_data
 
@@ -146,63 +139,3 @@ async def list_payouts(
         )
 
 
-# Webhook endpoint for payment provider notifications
-@router.post("/webhooks/payments", response_model=WebhookResponse)
-async def receive_payment_webhook(
-    webhook_data: WebhookRequest,
-    signature_data: WebhookSignature,
-    correlation_id: CorrelationID,
-    db: AsyncSession = Depends(get_db)
-) -> WebhookResponse:
-    """
-    Accept asynchronous webhook updates from payment providers.
-    
-    """
-    try:
-        logger.info("Payment webhook received", extra={
-            "correlation_id": correlation_id,
-            "event_type": webhook_data.event_type,
-            "event_id": webhook_data.event_id,
-            "payment_id": webhook_data.payment_id,
-            "reference": webhook_data.reference,
-            "status": webhook_data.status,
-            "signature_type": signature_data.get("type"),
-            "timestamp": webhook_data.timestamp.isoformat()
-        })
-        
-        webhook_service = WebhookService(db)
-        
-        result = await webhook_service.process_webhook_event(
-            webhook_data=webhook_data,
-            signature_data=signature_data,
-            correlation_id=correlation_id
-        )
-        
-        logger.info("Payment webhook processed successfully", extra={
-            "correlation_id": correlation_id,
-            "event_id": webhook_data.event_id,
-            "payment_id": webhook_data.payment_id,
-            "processed": result.get("processed", False),
-            "payout_id": result.get("payout_id")
-        })
-        
-        return WebhookResponse(
-            success=True,
-            message="Webhook processed successfully",
-            correlation_id=correlation_id
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Webhook processing failed", extra={
-            "correlation_id": correlation_id,
-            "error": str(e),
-            "event_id": webhook_data.event_id if webhook_data else None
-        })
-        
-        return WebhookResponse(
-            success=False,
-            message="Webhook processing failed",
-            correlation_id=correlation_id
-        )

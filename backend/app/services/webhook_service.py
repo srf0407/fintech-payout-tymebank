@@ -16,7 +16,6 @@ from ..models.payout import Payout, PayoutStatus
 from ..schemas.webhooks import (
     WebhookRequest,
     WebhookEventType,
-    WebhookStats,
     WebhookEvent
 )
 
@@ -248,67 +247,3 @@ class WebhookService:
                 "error": str(e)
             })
     
-    async def get_webhook_stats(self) -> WebhookStats:
-        """Get webhook delivery statistics."""
-        try:
-            # In a real implementation, you'd query webhook_events table
-            # For now, we'll return mock statistics
-            stats = WebhookStats(
-                total_events=100,
-                successful_deliveries=95,
-                failed_deliveries=5,
-                pending_deliveries=0,
-                events_last_24h=25,
-                success_rate_24h=0.96,
-                error_breakdown={
-                    "signature_verification_failed": 2,
-                    "payout_not_found": 2,
-                    "processing_error": 1
-                }
-            )
-            
-            return stats
-            
-        except Exception as e:
-            logger.error("Failed to get webhook stats", extra={"error": str(e)})
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve webhook statistics"
-            )
-    
-    async def retry_webhook_event(
-        self,
-        event_id: str,
-        correlation_id: str
-    ) -> Dict[str, Any]:
-        """Retry a failed webhook event."""
-        try:
-            logger.info("Retrying webhook event", extra={
-                "correlation_id": correlation_id,
-                "event_id": event_id
-            })
-            
-            # In a real implementation, you'd:
-            # 1. Find the webhook event record
-            # 2. Check retry limits
-            # 3. Resend the webhook
-            # 4. Update retry count
-            
-            # For now, return success
-            return {
-                "success": True,
-                "retry_count": 1,
-                "next_retry_at": None
-            }
-            
-        except Exception as e:
-            logger.error("Webhook retry failed", extra={
-                "correlation_id": correlation_id,
-                "event_id": event_id,
-                "error": str(e)
-            })
-            
-            return {
-                "success": False,
-                "error": str(e)
-            }

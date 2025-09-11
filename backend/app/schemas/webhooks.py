@@ -167,30 +167,3 @@ class WebhookSubscription(BaseModel):
     last_delivery_at: Optional[datetime] = Field(None, description="Last successful delivery")
 
 
-class WebhookStats(BaseModel):
-    """Webhook delivery statistics."""
-    
-    total_events: int = Field(..., description="Total events received")
-    successful_deliveries: int = Field(..., description="Successful deliveries")
-    failed_deliveries: int = Field(..., description="Failed deliveries")
-    pending_deliveries: int = Field(..., description="Pending deliveries")
-    
-    events_last_24h: int = Field(..., description="Events in last 24 hours")
-    success_rate_24h: float = Field(..., description="Success rate in last 24 hours")
-    
-    error_breakdown: Dict[str, int] = Field(default_factory=dict, description="Error type counts")
-
-
-class WebhookHealthCheck(BaseModel):
-    """Webhook system health check."""
-    
-    status: str = Field(..., description="Overall system status")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Check timestamp")
-    
-    database: str = Field(..., description="Database connectivity")
-    signature_verification: str = Field(..., description="Signature verification")
-    event_processing: str = Field(..., description="Event processing")
-    
-    stats: WebhookStats = Field(..., description="Current statistics")
-    
-    issues: List[str] = Field(default_factory=list, description="Current issues")
