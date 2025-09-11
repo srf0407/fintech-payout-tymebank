@@ -62,6 +62,7 @@ class Payout(Base):
     )
     last_attempt_at = Column(DateTime(timezone=True), nullable=True)
     webhook_received_at = Column(DateTime(timezone=True), nullable=True)
+    last_webhook_event_id = Column(String(128), nullable=True, index=True)
 
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())

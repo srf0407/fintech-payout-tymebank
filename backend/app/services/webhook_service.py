@@ -159,14 +159,33 @@ class WebhookService:
             return None
     
     async def _is_duplicate_webhook(self, event_id: str, payout_id: UUID) -> bool:
-        """Check if webhook event is duplicate."""
-        # Temporarily disable duplicate detection to avoid enum issues
-        # TODO: Implement proper duplicate detection with webhook events table
-        logger.info("Duplicate webhook check skipped (temporarily disabled)", extra={
-            "event_id": event_id,
-            "payout_id": str(payout_id)
-        })
-        return False
+        """Check if webhook event is duplicate using existing payout fields."""
+        try:
+            stmt = select(Payout).where(
+                Payout.id == payout_id,
+                Payout.last_webhook_event_id == event_id
+            )
+            result = await self.db.execute(stmt)
+            payout = result.scalar_one_or_none()
+            
+            if payout:
+                logger.info("Duplicate webhook detected", extra={
+                    "event_id": event_id,
+                    "payout_id": str(payout_id),
+                    "existing_status": payout.provider_status,
+                    "webhook_received_at": payout.webhook_received_at.isoformat() if payout.webhook_received_at else None
+                })
+                return True
+            
+            return False
+        except Exception as e:
+            logger.error("Failed to check duplicate webhook", extra={
+                "event_id": event_id,
+                "payout_id": str(payout_id),
+                "error": str(e)
+            })
+            # Fail open for safety - if we can't check, allow processing
+            return False
     
     async def _update_payout_from_webhook(
         self,
@@ -190,7 +209,17 @@ class WebhookService:
             payout.provider_reference = webhook_data.payment_id
             payout.provider_status = webhook_data.status
             payout.webhook_received_at = datetime.utcnow()
-            payout.correlation_id = UUID(correlation_id)
+            payout.last_webhook_event_id = webhook_data.event_id
+            # Only set correlation_id if it's a valid UUID format
+            try:
+                payout.correlation_id = UUID(correlation_id)
+            except ValueError:
+                # If correlation_id is not a valid UUID, generate a new one
+                payout.correlation_id = uuid4()
+                logger.warning("Invalid correlation_id format, generated new UUID", extra={
+                    "correlation_id": correlation_id,
+                    "payout_id": str(payout.id)
+                })
             
             if webhook_data.status == "failed":
                 payout.error_code = webhook_data.error_code
@@ -208,7 +237,8 @@ class WebhookService:
                 "reference": payout.reference,
                 "old_status": payout.status,
                 "new_status": new_status,
-                "provider_reference": webhook_data.payment_id
+                "provider_reference": webhook_data.payment_id,
+                "webhook_event_id": webhook_data.event_id
             })
             
         except Exception as e:

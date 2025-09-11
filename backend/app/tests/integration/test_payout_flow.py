@@ -139,6 +139,79 @@ class TestPayoutFlow:
                         assert "payout_id" in webhook_result
     
     @pytest.mark.asyncio
+    async def test_webhook_idempotency_integration(
+        self,
+        test_user: User,
+        test_payout_data: PayoutCreate,
+        mock_db_session
+    ):
+        """Test webhook idempotency in integration flow."""
+        webhook_service = WebhookService(mock_db_session)
+        
+        # Create a payout that has already been processed
+        payout_id = uuid4()
+        processed_payout = Payout(
+            id=payout_id,
+            reference="PAY_TEST123456789",
+            user_id=test_user.id,
+            amount=test_payout_data.amount,
+            currency=test_payout_data.currency,
+            status=PayoutStatus.succeeded,
+            idempotency_key="test_idempotency_key",
+            provider_reference="mock_ref_123456789",
+            provider_status="succeeded",
+            last_webhook_event_id="evt_already_processed",
+            webhook_received_at=datetime.utcnow(),
+            retry_count=0,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        processed_payout.id = str(payout_id)
+        processed_payout.user_id = str(test_user.id)
+        
+        # Create webhook data with the same event_id that was already processed
+        webhook_data = WebhookRequest(
+            event_type=WebhookEventType.PAYMENT_SUCCEEDED,
+            event_id="evt_already_processed",  # Same event_id as already processed
+            timestamp=datetime.utcnow(),
+            payment_id="pay_test123",
+            reference="PAY_TEST123456789",
+            status="succeeded",
+            amount=100.50,
+            currency="USD"
+        )
+        
+        with patch.object(webhook_service, '_find_payout_by_reference', return_value=processed_payout):
+            with patch.object(webhook_service, '_is_duplicate_webhook', return_value=True) as mock_duplicate:
+                signature_data = {"type": "hmac_sha256", "verified": True}
+                
+                # First webhook processing (should be duplicate)
+                result1 = await webhook_service.process_webhook_event(
+                    webhook_data=webhook_data,
+                    signature_data=signature_data,
+                    correlation_id="550e8400-e29b-41d4-a716-446655440000"  # Valid UUID format
+                )
+                
+                # Second webhook processing (should also be duplicate)
+                result2 = await webhook_service.process_webhook_event(
+                    webhook_data=webhook_data,
+                    signature_data=signature_data,
+                    correlation_id="550e8400-e29b-41d4-a716-446655440001"  # Valid UUID format
+                )
+                
+                # Both should be detected as duplicates
+                assert result1["processed"] is True
+                assert result1["duplicate"] is True
+                assert result2["processed"] is True
+                assert result2["duplicate"] is True
+                
+                # Both should return the same payout_id
+                assert result1["payout_id"] == result2["payout_id"]
+                
+                # Verify duplicate check was called twice
+                assert mock_duplicate.call_count == 2
+    
+    @pytest.mark.asyncio
     async def test_payout_flow_with_retry(
         self,
         test_user: User,
