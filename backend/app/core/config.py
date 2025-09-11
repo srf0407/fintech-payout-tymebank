@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     
     google_client_id: str
     google_client_secret: str
-    google_redirect_uri: str = "http://localhost:8000/auth/callback/google"
+    google_redirect_uri: str = "http://localhost:8000/auth/callback"
     
     webhook_secret: str
     webhook_timeout_seconds: int = 300  

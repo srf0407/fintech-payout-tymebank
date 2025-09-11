@@ -22,7 +22,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_allow_origins,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -72,15 +72,21 @@ async def correlation_id_middleware(request: Request, call_next):
         )
         raise
 
+app.include_router(auth.router)
+app.include_router(payouts.router)
+app.include_router(webhooks.router)
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     logger.info("health_check_requested")
     return {"status": "healthy", "correlation_id": get_correlation_id()}
 
-app.include_router(auth.router)
-app.include_router(payouts.router)
-app.include_router(webhooks.router)
+
+@app.get("/test-cors")
+async def test_cors():
+    """Test CORS endpoint"""
+    return {"message": "CORS test successful"}
 
 @app.get("/")
 async def root():
