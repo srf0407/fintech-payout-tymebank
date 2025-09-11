@@ -15,6 +15,12 @@ from ..db.session import get_db
 from ..models.user import User
 from ..services.auth_service import AuthService
 from ..services.webhook_service import WebhookService
+from ..services.rate_limiter import (
+    rate_limiter_service,
+    get_client_identifier,
+    create_rate_limit_exception,
+    RateLimitExceeded
+)
 
 logger = get_logger(__name__)
 
@@ -249,6 +255,7 @@ async def get_webhook_service(
     return WebhookService(db)
 
 
+# Type aliases for dependencies
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentUserOptional = Annotated[Optional[User], Depends(get_current_user_optional)]
 ActiveUser = Annotated[User, Depends(require_active_user)]
@@ -256,3 +263,65 @@ CorrelationID = Annotated[str, Depends(get_correlation_id)]
 WebhookSignature = Annotated[Dict[str, Any], Depends(verify_webhook_signature)]
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 WebhookServiceDep = Annotated[WebhookService, Depends(get_webhook_service)]
+
+# Rate limiting dependencies for auth endpoints
+async def check_auth_login_rate_limit(
+    request: Request,
+    correlation_id: CorrelationID
+) -> None:
+    """Check rate limit for auth login attempts."""
+    try:
+        client_id = get_client_identifier(request)
+        rate_limiter_service.check_auth_login_rate_limit(client_id, correlation_id)
+    except RateLimitExceeded as e:
+        raise create_rate_limit_exception(e.retry_after, correlation_id, "login")
+
+
+async def check_auth_callback_rate_limit(
+    request: Request,
+    correlation_id: CorrelationID
+) -> None:
+    """Check rate limit for auth callback attempts."""
+    try:
+        client_id = get_client_identifier(request)
+        rate_limiter_service.check_auth_callback_rate_limit(client_id, correlation_id)
+    except RateLimitExceeded as e:
+        raise create_rate_limit_exception(e.retry_after, correlation_id, "callback")
+
+
+async def check_token_refresh_rate_limit(
+    request: Request,
+    correlation_id: CorrelationID,
+    current_user: CurrentUser
+) -> None:
+    """Check rate limit for token refresh attempts."""
+    try:
+        user_id = str(current_user.id)
+        rate_limiter_service.check_token_refresh_rate_limit(user_id, correlation_id)
+    except RateLimitExceeded as e:
+        raise create_rate_limit_exception(e.retry_after, correlation_id, "refresh")
+
+
+async def check_auth_general_rate_limit(
+    request: Request,
+    correlation_id: CorrelationID,
+    current_user: Optional[User] = Depends(get_current_user_optional)
+) -> None:
+    """Check rate limit for general auth endpoints."""
+    try:
+        if current_user:
+            user_id = str(current_user.id)
+        else:
+            user_id = get_client_identifier(request)
+        
+        rate_limiter_service.check_auth_general_rate_limit(user_id, correlation_id)
+    except RateLimitExceeded as e:
+        raise create_rate_limit_exception(e.retry_after, correlation_id, "general")
+
+
+AuthLoginRateLimit = Annotated[None, Depends(check_auth_login_rate_limit)]
+AuthCallbackRateLimit = Annotated[None, Depends(check_auth_callback_rate_limit)]
+TokenRefreshRateLimit = Annotated[None, Depends(check_token_refresh_rate_limit)]
+AuthGeneralRateLimit = Annotated[None, Depends(check_auth_general_rate_limit)]
+
+

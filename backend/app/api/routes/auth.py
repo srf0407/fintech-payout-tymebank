@@ -7,7 +7,15 @@ from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 
-from ..deps import AuthServiceDep, CorrelationID, get_current_user
+from ..deps import (
+    AuthServiceDep, 
+    CorrelationID, 
+    get_current_user,
+    AuthLoginRateLimit,
+    AuthCallbackRateLimit,
+    TokenRefreshRateLimit,
+    AuthGeneralRateLimit
+)
 from ...schemas.auth import (
     OAuthLoginRequest,
     OAuthLoginResponse,
@@ -30,7 +38,8 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 async def initiate_login(
     request_data: OAuthLoginRequest,
     auth_service: AuthServiceDep,
-    correlation_id: CorrelationID
+    correlation_id: CorrelationID,
+    _: AuthLoginRateLimit
 ) -> OAuthLoginResponse:
     """
     Initiate OAuth 2.0 login flow with secure state and PKCE.
@@ -75,7 +84,8 @@ async def initiate_login(
 async def oauth_callback(
     request: Request,
     auth_service: AuthServiceDep,
-    correlation_id: CorrelationID
+    correlation_id: CorrelationID,
+    _: AuthCallbackRateLimit
 ) -> RedirectResponse:
     """
     Handle OAuth callback via GET request (for browser redirects).
@@ -169,7 +179,8 @@ async def oauth_callback(
 async def google_callback(
     request: Request,
     auth_service: AuthServiceDep,
-    correlation_id: CorrelationID
+    correlation_id: CorrelationID,
+    _: AuthCallbackRateLimit
 ) -> RedirectResponse:
     """
     Handle Google OAuth callback via GET request (for browser redirects).
@@ -264,6 +275,7 @@ async def refresh_token(
     request: Request,
     correlation_id: CorrelationID,
     auth_service: AuthServiceDep,
+    _: TokenRefreshRateLimit,
     current_user = Depends(get_current_user)
 ) -> TokenResponse:
     """
@@ -322,6 +334,7 @@ async def logout(
     request_data: LogoutRequest,
     correlation_id: CorrelationID,
     auth_service: AuthServiceDep,
+    _: AuthGeneralRateLimit,
     current_user = Depends(get_current_user)
 ) -> LogoutResponse:
     """
@@ -376,6 +389,7 @@ async def logout(
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
     correlation_id: CorrelationID,
+    _: AuthGeneralRateLimit,
     current_user = Depends(get_current_user)
 ) -> UserResponse:
     """
@@ -408,7 +422,8 @@ async def get_current_user_info(
 @router.post("/test-token", response_model=TokenResponse)
 async def create_test_token(
     correlation_id: CorrelationID,
-    auth_service: AuthServiceDep
+    auth_service: AuthServiceDep,
+    _: AuthGeneralRateLimit
 ) -> TokenResponse:
     """
     Create a test JWT token for development/testing purposes.
