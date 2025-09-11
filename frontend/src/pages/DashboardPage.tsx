@@ -101,13 +101,22 @@ const DashboardPage: React.FC = () => {
 		}
 	}, [user, loadPayouts]);
 
+	const validateForm = (
+		amount: number,
+		currency: string
+	): { isValid: boolean; error?: string } => {
+		const validation = payoutService.validatePayoutData(amount, currency);
+		return validation;
+	};
+
 	const handleCreatePayout = async (e: React.FormEvent) => {
 		e.preventDefault();
 
-		if (formState.amount <= 0) {
+		const validation = validateForm(formState.amount, formState.currency);
+		if (!validation.isValid) {
 			setFormState((prev) => ({
 				...prev,
-				payoutError: "Amount must be greater than 0",
+				payoutError: validation.error || "Invalid payout data",
 			}));
 			return;
 		}
@@ -120,7 +129,7 @@ const DashboardPage: React.FC = () => {
 
 		try {
 			const idempotencyKey = payoutService.generateIdempotencyKey();
-			const response = await payoutService.createPayout({
+			await payoutService.createPayout({
 				amount: formState.amount,
 				currency: formState.currency,
 				idempotency_key: idempotencyKey,
@@ -135,8 +144,31 @@ const DashboardPage: React.FC = () => {
 
 			await loadPayouts();
 		} catch (error) {
-			const errorMessage =
-				error instanceof Error ? error.message : "Failed to create payout";
+			let errorMessage = "Failed to create payout";
+
+			if (error instanceof Error) {
+				// Enhanced error handling for different error types
+				if (
+					error.message.includes("rate_limit") ||
+					error.message.includes("429")
+				) {
+					errorMessage =
+						"Too many requests. Please wait a moment before trying again.";
+				} else if (
+					error.message.includes("validation") ||
+					error.message.includes("400")
+				) {
+					errorMessage = "Please check your input and try again.";
+				} else if (
+					error.message.includes("unauthorized") ||
+					error.message.includes("401")
+				) {
+					errorMessage = "Please log in again to continue.";
+				} else {
+					errorMessage = error.message;
+				}
+			}
+
 			setFormState((prev) => ({
 				...prev,
 				payoutError: errorMessage,
@@ -228,13 +260,37 @@ const DashboardPage: React.FC = () => {
 							fullWidth
 							size='small'
 							value={formState.amount}
-							onChange={(e) =>
-								setFormState((prev) => ({
-									...prev,
-									amount: Number(e.target.value),
-								}))
-							}
-							inputProps={{ min: 1, step: 0.01 }}
+							onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+								const rawValue = e.target.value.replace(",", ".");
+								const newAmount = Number(rawValue);
+
+								if (!isNaN(newAmount)) {
+									setFormState((prev: PayoutFormState) => {
+										const newState = {
+											...prev,
+											amount: newAmount,
+										};
+
+										const validation = validateForm(newAmount, prev.currency);
+										if (!validation.isValid) {
+											newState.payoutError =
+												validation.error || "Invalid amount";
+										} else {
+											newState.payoutError = null;
+										}
+
+										return newState;
+									});
+								}
+							}}
+							inputProps={{
+								min: 0.01,
+								max: 1000000,
+								step: 0.01,
+								disabled: formState.isSubmitting,
+							}}
+							disabled={formState.isSubmitting}
+							helperText='Maximum amount: 1,000,000 (2 decimal places)'
 						/>
 						<TextField
 							label='Currency'
@@ -242,9 +298,27 @@ const DashboardPage: React.FC = () => {
 							fullWidth
 							size='small'
 							value={formState.currency}
-							onChange={(e) =>
-								setFormState((prev) => ({ ...prev, currency: e.target.value }))
-							}
+							onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+								const newCurrency = e.target.value;
+								setFormState((prev: PayoutFormState) => {
+									const newState = {
+										...prev,
+										currency: newCurrency,
+									};
+
+									// Real-time validation
+									const validation = validateForm(prev.amount, newCurrency);
+									if (!validation.isValid) {
+										newState.payoutError =
+											validation.error || "Invalid currency";
+									} else {
+										newState.payoutError = null;
+									}
+
+									return newState;
+								});
+							}}
+							disabled={formState.isSubmitting}
 						>
 							{payoutCurrencies.map((c) => (
 								<MenuItem key={c.code} value={c.code}>

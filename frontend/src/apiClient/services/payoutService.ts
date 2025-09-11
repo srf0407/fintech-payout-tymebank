@@ -52,17 +52,17 @@ class PayoutService {
 		payoutData: CreatePayoutRequest
 	): Promise<CreatePayoutResponse> {
 		try {
-				const { idempotency_key, ...bodyData } = payoutData;
+			const { idempotency_key, ...bodyData } = payoutData;
 
-				const response = await fetch(`${this.baseUrl}/payouts`, {
-					method: "POST",
-					credentials: "include", // Include cookies
-					headers: {
-						"Content-Type": "application/json",
-						...(idempotency_key && { "Idempotency-Key": idempotency_key }),
-					},
-					body: JSON.stringify(bodyData),
-				});
+			const response = await fetch(`${this.baseUrl}/payouts`, {
+				method: "POST",
+				credentials: "include", // Include cookies
+				headers: {
+					"Content-Type": "application/json",
+					...(idempotency_key && { "Idempotency-Key": idempotency_key }),
+				},
+				body: JSON.stringify(bodyData),
+			});
 
 			if (!response.ok) {
 				const errorData: ApiError = await response.json();
@@ -135,6 +135,31 @@ class PayoutService {
 	 */
 	generateIdempotencyKey(): string {
 		return `payout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+	}
+	validatePayoutData(
+		amount: number,
+		currency: string
+	): { isValid: boolean; error?: string } {
+		if (amount <= 0) {
+			return { isValid: false, error: "Amount must be greater than 0" };
+		}
+
+		if (amount > 1000000) {
+			return { isValid: false, error: "Amount cannot exceed 1,000,000" };
+		}
+
+		const amountStr = amount.toString();
+		const decimalParts = amountStr.split(".");
+		if (decimalParts.length > 1 && decimalParts[1].length > 2) {
+			return { isValid: false, error: "Amount can only have 2 decimal places" };
+		}
+
+		const validCurrencies = ["USD", "ZAR", "EUR"];
+		if (!validCurrencies.includes(currency)) {
+			return { isValid: false, error: "Invalid currency selected" };
+		}
+
+		return { isValid: true };
 	}
 }
 
