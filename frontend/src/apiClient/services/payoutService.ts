@@ -4,7 +4,7 @@
 
 export interface Payout {
 	id: string;
-	amount: number;
+	amount: string | number; // Backend returns as string, but we can handle both
 	currency: string;
 	status: "pending" | "processing" | "succeeded" | "failed" | "cancelled";
 	created_at: string;
@@ -12,6 +12,10 @@ export interface Payout {
 	user_id: string;
 	external_id?: string;
 	failure_reason?: string;
+	provider_reference?: string;
+	provider_status?: string;
+	error_code?: string;
+	error_message?: string;
 }
 
 export interface CreatePayoutRequest {
@@ -26,11 +30,10 @@ export interface CreatePayoutResponse {
 }
 
 export interface PayoutsListResponse {
-	payouts: Payout[];
+	items: Payout[];
 	total: number;
 	page: number;
-	per_page: number;
-	total_pages: number;
+	page_size: number;
 }
 
 export interface ApiError {

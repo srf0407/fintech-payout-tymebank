@@ -17,7 +17,10 @@ import {
 	Alert,
 	CircularProgress,
 	Pagination,
+	IconButton,
+	Tooltip,
 } from "@mui/material";
+import { Wifi, WifiOff, Sync, SyncProblem } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import styles from "./DashboardPage.module.css";
 import { useAuth } from "../auth/AuthContext";
@@ -25,7 +28,7 @@ import {
 	payoutService,
 	type Payout,
 } from "../apiClient/services/payoutService";
-
+import { usePolling } from "../hooks/usePolling";
 import {
 	statusColor,
 	formatDate,
@@ -50,6 +53,16 @@ type PayoutListState = {
 const DashboardPage: React.FC = () => {
 	const { user, logout, isLoading: authLoading } = useAuth();
 	const navigate = useNavigate();
+	const {
+		isPolling,
+		lastUpdate,
+		error: pollingError,
+		pollCount,
+		startPolling,
+		stopPolling,
+		updatePayouts,
+		onPayoutUpdate,
+	} = usePolling();
 
 	const [formState, setFormState] = useState<PayoutFormState>({
 		amount: 0,
@@ -80,8 +93,8 @@ const DashboardPage: React.FC = () => {
 			);
 			setListState((prev) => ({
 				...prev,
-				payouts: response.payouts,
-				totalPages: response.total_pages,
+				payouts: response.items,
+				totalPages: Math.ceil(response.total / 10), // Calculate total pages from total and page_size
 				isLoadingPayouts: false,
 			}));
 		} catch (error) {
@@ -94,6 +107,41 @@ const DashboardPage: React.FC = () => {
 			}));
 		}
 	}, [listState.currentPage]);
+
+	// Start polling when payouts are loaded
+	useEffect(() => {
+		if (listState.payouts && listState.payouts.length > 0 && !isPolling) {
+			startPolling(listState.payouts);
+		}
+	}, [listState.payouts, isPolling, startPolling]);
+
+	// Update polling service when payouts change
+	useEffect(() => {
+		if (listState.payouts && listState.payouts.length > 0) {
+			updatePayouts(listState.payouts);
+		}
+	}, [listState.payouts, updatePayouts]);
+
+	// Handle real-time payout updates from polling
+	useEffect(() => {
+		const unsubscribe = onPayoutUpdate((updatedPayouts: Payout[]) => {
+			if (updatedPayouts && Array.isArray(updatedPayouts)) {
+				setListState((prev) => ({
+					...prev,
+					payouts: updatedPayouts,
+				}));
+			}
+		});
+
+		return unsubscribe;
+	}, [onPayoutUpdate]);
+
+	// Cleanup polling on unmount
+	useEffect(() => {
+		return () => {
+			stopPolling();
+		};
+	}, [stopPolling]);
 
 	useEffect(() => {
 		if (user) {
@@ -186,6 +234,29 @@ const DashboardPage: React.FC = () => {
 		setListState((prev) => ({ ...prev, currentPage: page }));
 	};
 
+	const getPollingIcon = () => {
+		if (isPolling) {
+			return <Sync className='animate-spin' color='success' />;
+		} else if (pollingError) {
+			return <SyncProblem color='error' />;
+		} else {
+			return <WifiOff color='disabled' />;
+		}
+	};
+
+	const getPollingTooltip = () => {
+		if (isPolling) {
+			const lastUpdateText = lastUpdate
+				? `Last update: ${lastUpdate.toLocaleTimeString()}`
+				: "No updates yet";
+			return `Polling active (${pollCount} checks) - ${lastUpdateText}`;
+		} else if (pollingError) {
+			return `Polling error: ${pollingError}`;
+		} else {
+			return "Polling stopped";
+		}
+	};
+
 	if (authLoading) {
 		return (
 			<Box
@@ -221,14 +292,19 @@ const DashboardPage: React.FC = () => {
 							{user?.email}
 						</Typography>
 					</div>
-					<Button
-						variant='outlined'
-						color='primary'
-						onClick={handleLogout}
-						disabled={authLoading}
-					>
-						Log out
-					</Button>
+					<div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+						<Tooltip title={getPollingTooltip()}>
+							<IconButton size='small'>{getPollingIcon()}</IconButton>
+						</Tooltip>
+						<Button
+							variant='outlined'
+							color='primary'
+							onClick={handleLogout}
+							disabled={authLoading}
+						>
+							Log out
+						</Button>
+					</div>
 				</div>
 				{/* Payout Form (UI only, no integration) */}
 				<div className={styles.payoutSection}>
@@ -344,9 +420,31 @@ const DashboardPage: React.FC = () => {
 				</div>
 				{/* Payout List */}
 				<div className={styles.payoutListSection}>
-					<Typography variant='h6' fontWeight={600} gutterBottom>
-						Recent Payouts
-					</Typography>
+					<div
+						style={{
+							display: "flex",
+							justifyContent: "space-between",
+							alignItems: "center",
+							marginBottom: "16px",
+						}}
+					>
+						<Typography variant='h6' fontWeight={600}>
+							Recent Payouts
+						</Typography>
+						{!isPolling &&
+							listState.payouts &&
+							listState.payouts.length > 0 && (
+								<Alert severity='info' sx={{ maxWidth: "400px" }}>
+									Live updates paused. Status changes will appear on next
+									refresh.
+								</Alert>
+							)}
+						{pollingError && (
+							<Alert severity='warning' sx={{ maxWidth: "400px" }}>
+								Update error: {pollingError}
+							</Alert>
+						)}
+					</div>
 					<Divider sx={{ mb: 2 }} />
 
 					{listState.payoutsError && (
@@ -390,7 +488,9 @@ const DashboardPage: React.FC = () => {
 											listState.payouts.map((payout) => (
 												<TableRow key={payout.id}>
 													<TableCell>{formatDate(payout.created_at)}</TableCell>
-													<TableCell>{payout.amount.toFixed(2)}</TableCell>
+													<TableCell>
+														{Number(payout.amount).toFixed(2)}
+													</TableCell>
 													<TableCell>{payout.currency}</TableCell>
 													<TableCell>
 														<Chip
