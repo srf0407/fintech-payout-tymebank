@@ -54,8 +54,6 @@ class AuthService:
                 "redirect_uri": redirect_uri,
                 "state": state,
                 "nonce": nonce,
-                "code_challenge": generate_code_challenge(code_verifier),
-                "code_challenge_method": "S256",
                 "access_type": "offline",
                 "prompt": "consent"
             }

@@ -14,6 +14,7 @@ from ..core.logging import get_logger
 from ..db.session import get_db
 from ..models.user import User
 from ..services.auth_service import AuthService
+from ..services.webhook_service import WebhookService
 
 logger = get_logger(__name__)
 
@@ -128,6 +129,14 @@ async def verify_webhook_signature(
     try:
         body = await request.body()
         
+        # Log the signature verification attempt
+        logger.info("Verifying webhook signature", extra={
+            "signature_type": x_signature_type,
+            "signature": x_signature[:20] + "..." if len(x_signature) > 20 else x_signature,
+            "body_length": len(body),
+            "correlation_id": getattr(request.state, "correlation_id", None)
+        })
+        
         if x_timestamp:
             if not verify_webhook_timestamp(x_timestamp, settings.webhook_timeout_seconds):
                 raise HTTPException(
@@ -138,6 +147,11 @@ async def verify_webhook_signature(
         if x_signature_type.startswith("hmac_"):
             algorithm = x_signature_type.replace("hmac_", "")
             if not verify_webhook_signature_hmac(body, x_signature, settings.webhook_secret, algorithm):
+                logger.warning("HMAC signature verification failed", extra={
+                    "signature_type": x_signature_type,
+                    "algorithm": algorithm,
+                    "correlation_id": getattr(request.state, "correlation_id", None)
+                })
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid webhook signature"
@@ -154,6 +168,11 @@ async def verify_webhook_signature(
                 detail=f"Unsupported signature type: {x_signature_type}"
             )
         
+        logger.info("Webhook signature verified successfully", extra={
+            "signature_type": x_signature_type,
+            "correlation_id": getattr(request.state, "correlation_id", None)
+        })
+        
         return signature_data
         
     except WebhookVerificationError as e:
@@ -169,6 +188,7 @@ async def verify_webhook_signature(
     except Exception as e:
         logger.error("Webhook verification error", extra={
             "error": str(e),
+            "signature_type": x_signature_type,
             "correlation_id": getattr(request.state, "correlation_id", None)
         })
         raise HTTPException(
@@ -195,9 +215,19 @@ async def get_auth_service(
     return AuthService(db)
 
 
+async def get_webhook_service(
+    db: AsyncSession = Depends(get_db)
+) -> WebhookService:
+    """
+    Get webhook service instance.
+    """
+    return WebhookService(db)
+
+
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentUserOptional = Annotated[Optional[User], Depends(get_current_user_optional)]
 ActiveUser = Annotated[User, Depends(require_active_user)]
 CorrelationID = Annotated[str, Depends(get_correlation_id)]
 WebhookSignature = Annotated[Dict[str, Any], Depends(verify_webhook_signature)]
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+WebhookServiceDep = Annotated[WebhookService, Depends(get_webhook_service)]

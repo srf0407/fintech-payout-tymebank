@@ -14,7 +14,21 @@ class PayoutCreate(BaseModel):
 
     amount: Decimal = Field(..., gt=Decimal("0"))
     currency: str = Field(..., min_length=3, max_length=3)
+    recipient_account: str = Field(..., min_length=1)
+    reference: str = Field(..., min_length=1)
     metadata_json: Optional[dict[str, Any]] = None
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def validate_amount(cls, v) -> Decimal:
+        if isinstance(v, str):
+            return Decimal(v)
+        elif isinstance(v, (int, float)):
+            return Decimal(str(v))
+        elif isinstance(v, Decimal):
+            return v
+        else:
+            raise ValueError("amount must be a number or string")
 
     @field_validator("currency")
     @classmethod
@@ -45,6 +59,13 @@ class PayoutRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     correlation_id: Optional[str] = None
+
+    @field_validator("id", "user_id", "correlation_id", mode="before")
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        if v is None:
+            return None
+        return str(v)
 
 
 class PayoutList(BaseModel):

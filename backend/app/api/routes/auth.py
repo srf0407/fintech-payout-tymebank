@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
 
 from ..deps import AuthServiceDep, CorrelationID, get_current_user
-from ..schemas.auth import (
+from ...schemas.auth import (
     OAuthLoginRequest,
     OAuthLoginResponse,
     OAuthCallbackRequest,
@@ -18,8 +18,8 @@ from ..schemas.auth import (
     LogoutResponse,
     UserResponse
 )
-from ..core.logging import get_logger
-from ..core.security import sanitize_log_data
+from ...core.logging import get_logger
+from ...core.security import sanitize_log_data
 
 logger = get_logger(__name__)
 
@@ -119,6 +119,89 @@ async def handle_callback(
         )
 
 
+@router.get("/callback")
+async def oauth_callback(
+    request: Request,
+    auth_service: AuthServiceDep,
+    correlation_id: CorrelationID
+) -> RedirectResponse:
+    """
+    Handle OAuth callback via GET request (for browser redirects).
+    
+    This endpoint:
+    - Extracts authorization code and state from query parameters
+    - Validates state parameter
+    - Exchanges code for tokens
+    - Redirects to frontend with token or error
+    """
+    try:
+        code = request.query_params.get("code")
+        state = request.query_params.get("state")
+        error = request.query_params.get("error")
+        
+        if error:
+            logger.warning("OAuth error received", extra={
+                "correlation_id": correlation_id,
+                "error": error,
+                "error_description": request.query_params.get("error_description")
+            })
+            return RedirectResponse(
+                url=f"http://localhost:5173/auth/callback?error={error}&correlation_id={correlation_id}"
+            )
+        
+        if not code or not state:
+            logger.warning("Missing OAuth parameters", extra={
+                "correlation_id": correlation_id,
+                "has_code": bool(code),
+                "has_state": bool(state)
+            })
+            return RedirectResponse(
+                url=f"http://localhost:5173/auth/callback?error=missing_parameters&correlation_id={correlation_id}"
+            )
+        
+        redirect_uri = f"{request.base_url}auth/callback"
+        
+        # For now, we'll need to generate a new code_verifier
+        # In a production system, you'd store this in Redis or similar
+        from ...core.security import generate_code_verifier
+        code_verifier = generate_code_verifier()
+        
+        logger.info("Processing OAuth callback", extra={
+            "correlation_id": correlation_id,
+            "code": code[:8] + "...",
+            "state": state[:8] + "..."
+        })
+        
+        token_response = await auth_service.handle_oauth_callback(
+            code=code,
+            state=state,
+            code_verifier=code_verifier,
+            redirect_uri=redirect_uri
+        )
+        
+        return RedirectResponse(
+            url=f"http://localhost:5173/auth/callback?success=true&token={token_response.access_token}&correlation_id={correlation_id}"
+        )
+        
+    except HTTPException as e:
+        logger.error("OAuth callback failed", extra={
+            "correlation_id": correlation_id,
+            "status_code": e.status_code,
+            "detail": e.detail
+        })
+        return RedirectResponse(
+            url=f"http://localhost:5173/auth/callback?error=oauth_failed&correlation_id={correlation_id}"
+        )
+    except Exception as e:
+        logger.error("Unexpected error in OAuth callback", extra={
+            "correlation_id": correlation_id,
+            "error": str(e)
+        })
+        return RedirectResponse(
+            url=f"http://localhost:5173/auth/callback?error=server_error&correlation_id={correlation_id}"
+        )
+
+
 @router.get("/callback/google")
 async def google_callback(
     request: Request,
@@ -146,7 +229,7 @@ async def google_callback(
                 "error_description": request.query_params.get("error_description")
             })
             return RedirectResponse(
-                url=f"http://localhost:3000/auth/callback?error={error}&correlation_id={correlation_id}"
+                url=f"http://localhost:5173/auth/callback?error={error}&correlation_id={correlation_id}"
             )
         
         if not code or not state:
@@ -156,12 +239,12 @@ async def google_callback(
                 "has_state": bool(state)
             })
             return RedirectResponse(
-                url=f"http://localhost:3000/auth/callback?error=missing_parameters&correlation_id={correlation_id}"
+                url=f"http://localhost:5173/auth/callback?error=missing_parameters&correlation_id={correlation_id}"
             )
         
         redirect_uri = f"{request.base_url}auth/callback/google"
         
-        from ..core.security import generate_code_verifier
+        from ...core.security import generate_code_verifier
         code_verifier = generate_code_verifier()
         
         logger.info("Processing Google OAuth callback", extra={
@@ -178,7 +261,7 @@ async def google_callback(
         )
         
         return RedirectResponse(
-            url=f"http://localhost:3000/auth/callback?success=true&token={token_response.access_token}&correlation_id={correlation_id}"
+            url=f"http://localhost:5173/auth/callback?success=true&token={token_response.access_token}&correlation_id={correlation_id}"
         )
         
     except HTTPException as e:
@@ -188,7 +271,7 @@ async def google_callback(
             "detail": e.detail
         })
         return RedirectResponse(
-            url=f"http://localhost:3000/auth/callback?error=oauth_failed&correlation_id={correlation_id}"
+            url=f"http://localhost:5173/auth/callback?error=oauth_failed&correlation_id={correlation_id}"
         )
     except Exception as e:
         logger.error("Unexpected error in Google OAuth callback", extra={
@@ -196,7 +279,7 @@ async def google_callback(
             "error": str(e)
         })
         return RedirectResponse(
-            url=f"http://localhost:3000/auth/callback?error=server_error&correlation_id={correlation_id}"
+            url=f"http://localhost:5173/auth/callback?error=server_error&correlation_id={correlation_id}"
         )
 
 
@@ -319,4 +402,59 @@ async def get_current_user_info(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get user information"
+        )
+
+
+@router.post("/test-token", response_model=TokenResponse)
+async def create_test_token(
+    correlation_id: CorrelationID,
+    auth_service: AuthServiceDep
+) -> TokenResponse:
+    """
+    Create a test JWT token for development/testing purposes.
+    
+    This endpoint creates a test user in the database and returns a valid JWT token.
+    Use this for testing protected endpoints in development.
+    """
+    try:
+        logger.info("Test token creation requested", extra={
+            "correlation_id": correlation_id
+        })
+        
+        # Create a test user using GoogleUserInfo
+        from ...schemas.auth import GoogleUserInfo
+        test_user_info = GoogleUserInfo(
+            id="test-google-id-123",
+            email="test@example.com",
+            verified_email=True,
+            name="Test User",
+            given_name="Test",
+            family_name="User",
+            picture=None,
+            locale="en"
+        )
+        
+        # Create or get test user using the private method
+        user = await auth_service._create_or_update_user(test_user_info, correlation_id)
+        
+        # Generate token
+        token_data = await auth_service.refresh_user_token(user)
+        
+        logger.info("Test token created successfully", extra={
+            "correlation_id": correlation_id,
+            "user_id": str(user.id),
+            "email": user.email
+        })
+        
+        return token_data
+        
+    except Exception as e:
+        logger.error("Failed to create test token", extra={
+            "correlation_id": correlation_id,
+            "error": str(e)
+        })
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create test token: {str(e)}"
         )

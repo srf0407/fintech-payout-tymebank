@@ -7,8 +7,8 @@ from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Header
 from fastapi.responses import JSONResponse
 
-from ..deps import WebhookSignature, CorrelationID
-from ..schemas.webhooks import (
+from ..deps import WebhookSignature, CorrelationID, WebhookServiceDep
+from ...schemas.webhooks import (
     WebhookRequest,
     WebhookResponse,
     WebhookErrorResponse,
@@ -16,9 +16,9 @@ from ..schemas.webhooks import (
     WebhookHealthCheck,
     WebhookStats
 )
-from ..services.webhook_service import WebhookService
-from ..core.logging import get_logger
-from ..core.security import sanitize_log_data
+from ...services.webhook_service import WebhookService
+from ...core.logging import get_logger
+from ...core.security import sanitize_log_data
 
 logger = get_logger(__name__)
 
@@ -31,7 +31,7 @@ async def receive_payment_webhook(
     webhook_data: WebhookRequest,
     signature_data: WebhookSignature,
     correlation_id: CorrelationID,
-    webhook_service: WebhookService = Depends()
+    webhook_service: WebhookServiceDep
 ) -> WebhookResponse:
     """
     Receive and process payment webhook notifications.
@@ -140,7 +140,7 @@ async def test_webhook(
 @router.get("/health", response_model=WebhookHealthCheck)
 async def webhook_health_check(
     correlation_id: CorrelationID,
-    webhook_service: WebhookService = Depends()
+    webhook_service: WebhookServiceDep
 ) -> WebhookHealthCheck:
     """
     Webhook system health check.
@@ -215,7 +215,7 @@ async def webhook_health_check(
 @router.get("/stats", response_model=WebhookStats)
 async def get_webhook_stats(
     correlation_id: CorrelationID,
-    webhook_service: WebhookService = Depends()
+    webhook_service: WebhookServiceDep
 ) -> WebhookStats:
     """
     Get webhook delivery statistics.
@@ -256,7 +256,7 @@ async def get_webhook_stats(
 async def retry_webhook_event(
     event_id: str,
     correlation_id: CorrelationID,
-    webhook_service: WebhookService = Depends()
+    webhook_service: WebhookServiceDep
 ) -> WebhookResponse:
     """
     Retry a failed webhook event.

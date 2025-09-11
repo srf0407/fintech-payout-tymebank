@@ -407,7 +407,7 @@ class PayoutService:
             
             count_stmt = select(Payout).where(Payout.user_id == user.id)
             count_result = await self.db.execute(count_stmt)
-            total = len(await count_result.scalars().all())
+            total = len(count_result.scalars().all())
             
             stmt = (
                 select(Payout)
@@ -417,7 +417,7 @@ class PayoutService:
                 .limit(page_size)
             )
             result = await self.db.execute(stmt)
-            payouts = await result.scalars().all()
+            payouts = result.scalars().all()
             
             payout_reads = [PayoutRead.model_validate(payout) for payout in payouts]
             

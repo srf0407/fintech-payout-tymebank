@@ -194,7 +194,6 @@ async def exchange_oauth_code_for_token(
         "code": code,
         "grant_type": "authorization_code",
         "redirect_uri": redirect_uri,
-        "code_verifier": code_verifier,
     }
     
     async with httpx.AsyncClient() as client:
@@ -269,12 +268,26 @@ def verify_webhook_signature_hmac(
     Supports sha256 and sha1 algorithms.
     """
     try:
+        logger.info("HMAC verification starting", extra={
+            "signature_input": signature,
+            "algorithm": algorithm,
+            "payload_length": len(payload),
+            "secret_length": len(secret)
+        })
+        
         if "=" in signature:
             algo, sig = signature.split("=", 1)
+            logger.info("Signature parsed", extra={
+                "algorithm_part": algo,
+                "signature_part": sig[:20] + "..." if len(sig) > 20 else sig
+            })
             if algo != algorithm:
                 raise WebhookVerificationError(f"Unsupported algorithm: {algo}")
         else:
             sig = signature
+            logger.info("No algorithm prefix in signature", extra={
+                "signature": sig[:20] + "..." if len(sig) > 20 else sig
+            })
         
         expected_signature = hmac.new(
             secret.encode(),
@@ -282,7 +295,24 @@ def verify_webhook_signature_hmac(
             getattr(hashlib, algorithm)
         ).hexdigest()
         
-        return hmac.compare_digest(sig, expected_signature)
+        # Debug logging
+        logger.info("HMAC signature verification debug", extra={
+            "algorithm": algorithm,
+            "signature_received": sig[:20] + "..." if len(sig) > 20 else sig,
+            "signature_expected": expected_signature[:20] + "..." if len(expected_signature) > 20 else expected_signature,
+            "payload_length": len(payload),
+            "secret_length": len(secret)
+        })
+        
+        # Compare the signature part (after the =) with the expected signature
+        result = hmac.compare_digest(sig, expected_signature)
+        
+        logger.info("HMAC signature verification result", extra={
+            "verified": result,
+            "algorithm": algorithm
+        })
+        
+        return result
         
     except Exception as e:
         logger.warning("HMAC signature verification failed", extra={"error": str(e)})
