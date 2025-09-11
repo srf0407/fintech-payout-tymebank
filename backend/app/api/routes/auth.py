@@ -11,7 +11,6 @@ from ..deps import AuthServiceDep, CorrelationID, get_current_user
 from ...schemas.auth import (
     OAuthLoginRequest,
     OAuthLoginResponse,
-    OAuthCallbackRequest,
     TokenResponse,
     AuthErrorResponse,
     LogoutRequest,
@@ -70,54 +69,6 @@ async def initiate_login(
         )
 
 
-@router.post("/callback", response_model=TokenResponse)
-async def handle_callback(
-    request_data: OAuthCallbackRequest,
-    auth_service: AuthServiceDep,
-    correlation_id: CorrelationID
-) -> TokenResponse:
-    """
-    Handle OAuth 2.0 callback and exchange authorization code for tokens.
-    
-    This endpoint:
-    - Validates state parameter for CSRF protection
-    - Exchanges authorization code for access token using PKCE
-    - Fetches user information from Google
-    - Creates or updates user in database
-    - Returns JWT access token
-    """
-    try:
-        logger.info("OAuth callback received", extra={
-            "correlation_id": correlation_id,
-            "state": request_data.state[:8] + "...",
-            "redirect_uri": request_data.redirect_uri
-        })
-        
-        token_response = await auth_service.handle_oauth_callback(
-            code=request_data.code,
-            state=request_data.state,
-            code_verifier=request_data.code_verifier,
-            redirect_uri=request_data.redirect_uri
-        )
-        
-        logger.info("OAuth callback successful", extra={
-            "correlation_id": correlation_id,
-            "user_id": token_response.user.id
-        })
-        
-        return token_response
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("OAuth callback failed", extra={
-            "correlation_id": correlation_id,
-            "error": str(e)
-        })
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="OAuth callback processing failed"
-        )
 
 
 @router.get("/callback")
@@ -171,7 +122,6 @@ async def oauth_callback(
         token_response = await auth_service.handle_oauth_callback(
             code=code,
             state=state,
-            code_verifier="",
             redirect_uri=redirect_uri
         )
         
@@ -266,7 +216,6 @@ async def google_callback(
         token_response = await auth_service.handle_oauth_callback(
             code=code,
             state=state,
-            code_verifier="",  
             redirect_uri=redirect_uri
         )
         

@@ -31,13 +31,6 @@ class OAuthLoginResponse(BaseModel):
     expires_at: datetime = Field(..., description="When the state expires")
 
 
-class OAuthCallbackRequest(BaseModel):
-    """Request to handle OAuth callback."""
-    
-    code: str = Field(..., description="Authorization code from OAuth provider")
-    state: str = Field(..., description="State parameter for CSRF protection")
-    code_verifier: str = Field(..., description="PKCE code verifier")
-    redirect_uri: str = Field(..., description="Original redirect URI")
 
 
 class GoogleUserInfo(BaseModel):
