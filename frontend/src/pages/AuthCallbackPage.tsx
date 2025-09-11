@@ -1,0 +1,81 @@
+
+import { useEffect, useState } from "react";
+import { Typography, Box, CircularProgress, Alert } from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import { authService } from "../apiClient/services/authService";
+
+const AuthCallbackPage = () => {
+	const navigate = useNavigate();
+	const [errorMsg, setErrorMsg] = useState<string | null>(null);
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		const handleCallback = async () => {
+			try {
+				const urlParams = new URLSearchParams(window.location.search);
+				const error = urlParams.get("error");
+				const success = urlParams.get("success");
+				const token = urlParams.get("token");
+
+				if (error) {
+					setErrorMsg("Authentication failed: " + error);
+					setLoading(false);
+					setTimeout(() => navigate("/login?error=" + encodeURIComponent(error)), 2500);
+					return;
+				}
+
+				if (success === "true" && token) {
+					sessionStorage.setItem("auth_token", token);
+					try {
+						await authService.getCurrentUser();
+						navigate("/dashboard");
+					} catch (err) {
+						setErrorMsg("Failed to fetch user profile after login.");
+						setLoading(false);
+						setTimeout(() => navigate("/login?error=profile_failed"), 2500);
+					}
+					return;
+				}
+
+				setErrorMsg("Invalid authentication callback parameters.");
+				setLoading(false);
+				setTimeout(() => navigate("/login?error=invalid_callback"), 2500);
+			} catch (err) {
+				setErrorMsg("Unexpected error during authentication.");
+				setLoading(false);
+				setTimeout(() => navigate("/login?error=unexpected"), 2500);
+			}
+		};
+		handleCallback();
+	
+	}, [navigate]);
+
+		return (
+			<Box
+				display="flex"
+				flexDirection="column"
+				alignItems="center"
+				justifyContent="center"
+				minHeight="100vh"
+				gap={2}
+			>
+				{errorMsg ? (
+					<Alert severity="error" sx={{ mt: 2, maxWidth: 400 }}>
+						{errorMsg}
+					</Alert>
+				) : (
+					<>
+						{loading && <CircularProgress size={40} />}
+						<Typography variant="h6" color="text.secondary">
+							Completing authentication...
+						</Typography>
+						<Typography variant="body2" color="text.secondary" textAlign="center">
+							Please wait while we complete your login.
+						</Typography>
+					</>
+				)}
+			</Box>
+		);
+};
+
+export default AuthCallbackPage;
