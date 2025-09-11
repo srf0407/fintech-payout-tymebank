@@ -161,11 +161,6 @@ async def oauth_callback(
         
         redirect_uri = f"{request.base_url}auth/callback"
         
-        # For now, we'll need to generate a new code_verifier
-        # In a production system, you'd store this in Redis or similar
-        from ...core.security import generate_code_verifier
-        code_verifier = generate_code_verifier()
-        
         logger.info("Processing OAuth callback", extra={
             "correlation_id": correlation_id,
             "code": code[:8] + "...",
@@ -175,7 +170,7 @@ async def oauth_callback(
         token_response = await auth_service.handle_oauth_callback(
             code=code,
             state=state,
-            code_verifier=code_verifier,
+            code_verifier="",  #
             redirect_uri=redirect_uri
         )
         
@@ -244,19 +239,17 @@ async def google_callback(
         
         redirect_uri = f"{request.base_url}auth/callback/google"
         
-        from ...core.security import generate_code_verifier
-        code_verifier = generate_code_verifier()
-        
         logger.info("Processing Google OAuth callback", extra={
             "correlation_id": correlation_id,
             "code": code[:8] + "...",
             "state": state[:8] + "..."
         })
         
+        # The code_verifier will be retrieved from stored session data
         token_response = await auth_service.handle_oauth_callback(
             code=code,
             state=state,
-            code_verifier=code_verifier,
+            code_verifier="",  # Will be ignored, using stored value
             redirect_uri=redirect_uri
         )
         
