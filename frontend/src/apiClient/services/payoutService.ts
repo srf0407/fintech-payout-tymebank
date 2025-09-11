@@ -6,7 +6,7 @@ export interface Payout {
 	id: string;
 	amount: number;
 	currency: string;
-	status: "pending" | "processing" | "completed" | "failed" | "cancelled";
+	status: "pending" | "processing" | "succeeded" | "failed" | "cancelled";
 	created_at: string;
 	updated_at: string;
 	user_id: string;
