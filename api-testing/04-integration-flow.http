@@ -1,0 +1,252 @@
+### Fintech Payouts API - End-to-End Integration Flow
+### Base URL: http://localhost:8000
+### Description: Complete user journey from authentication to payout completion
+
+### Variables
+@baseUrl = http://localhost:8000
+@frontendUrl = http://localhost:5173
+@correlationId = integration-test-{{$timestamp}}
+@idempotencyKey = integration-{{$timestamp}}
+
+### Complete User Journey Flow
+
+### Step 1: Health Check
+GET {{baseUrl}}/health
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### Step 2: Initiate OAuth Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}
+
+{
+  "redirect_uri": "{{frontendUrl}}/auth/callback"
+}
+
+###
+
+### Step 3: OAuth Callback (Simulated)
+# Note: In real scenario, this would be called by Google OAuth provider
+GET {{baseUrl}}/auth/callback?code=4/0AX4XfWh...&state=secure-state-param-123
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### Step 4: Get User Info
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### Step 5: Create First Payout
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-001
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 150.00,
+  "currency": "USD",
+  "reference": "INTEGRATION-PAY-001",
+  "metadata_json": {
+    "description": "Integration test payment",
+    "category": "testing",
+    "priority": "normal"
+  }
+}
+
+###
+
+### Step 6: List Payouts to Verify Creation
+GET {{baseUrl}}/payouts/?page=1&page_size=5
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### Step 7: Create Second Payout (Different Currency)
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-002
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 200.50,
+  "currency": "EUR",
+  "reference": "INTEGRATION-PAY-002",
+  "metadata_json": {
+    "description": "International integration test",
+    "category": "testing",
+    "region": "europe"
+  }
+}
+
+###
+
+### Step 8: Refresh Token
+POST {{baseUrl}}/auth/refresh
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### Step 9: List Payouts Again (with refreshed token)
+GET {{baseUrl}}/payouts/?page=1&page_size=10
+Authorization: Bearer {{newAccessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### Step 10: Simulate Webhook for First Payout
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=calculated-hmac-signature
+X-Signature-Type: hmac_sha256
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.succeeded",
+  "event_id": "evt_{{timestamp}}",
+  "timestamp": "{{$isoTimestamp}}",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "INTEGRATION-PAY-001",
+  "status": "succeeded",
+  "amount": 150.00,
+  "currency": "USD",
+  "error_code": null,
+  "error_message": null,
+  "metadata": {
+    "provider": "mock_provider",
+    "processing_time": "1.8s"
+  }
+}
+
+###
+
+### Step 11: Simulate Webhook for Second Payout (Failed)
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=calculated-hmac-signature
+X-Signature-Type: hmac_sha256
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.failed",
+  "event_id": "evt_{{timestamp}}",
+  "timestamp": "{{$isoTimestamp}}",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "INTEGRATION-PAY-002",
+  "status": "failed",
+  "amount": 200.50,
+  "currency": "EUR",
+  "error_code": "PROCESSING_ERROR",
+  "error_message": "Temporary processing error",
+  "metadata": {
+    "provider": "mock_provider",
+    "retry_count": 1
+  }
+}
+
+###
+
+### Step 12: Final Payout List Check
+GET {{baseUrl}}/payouts/?page=1&page_size=20
+Authorization: Bearer {{newAccessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### Step 13: Logout
+POST {{baseUrl}}/auth/logout
+Content-Type: application/json
+Authorization: Bearer {{newAccessToken}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "correlation_id": "{{correlationId}}"
+}
+
+###
+
+### Error Recovery Flow
+
+### Step 14: Attempt Access After Logout (Should Fail)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{newAccessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### Step 15: Attempt Payout Creation After Logout (Should Fail)
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{newAccessToken}}
+Idempotency-Key: {{idempotencyKey}}-003
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 300.00,
+  "currency": "USD",
+  "reference": "INTEGRATION-PAY-003"
+}
+
+###
+
+### Performance and Load Testing
+
+### Step 16: Concurrent Payout Creation (Simulate Multiple Users)
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-concurrent-001
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.00,
+  "currency": "USD",
+  "reference": "CONCURRENT-001"
+}
+
+###
+
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-concurrent-002
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 200.00,
+  "currency": "USD",
+  "reference": "CONCURRENT-002"
+}
+
+###
+
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-concurrent-003
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 300.00,
+  "currency": "USD",
+  "reference": "CONCURRENT-003"
+}
+
+###
+
+### Step 17: Bulk Payout List Check
+GET {{baseUrl}}/payouts/?page=1&page_size=50
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###

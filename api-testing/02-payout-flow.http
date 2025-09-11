@@ -1,0 +1,359 @@
+### Fintech Payouts API - Payout Flow Tests
+### Base URL: http://localhost:8000
+### Description: Complete payout creation and management flow
+
+### Variables
+@baseUrl = http://localhost:8000
+@correlationId = payout-test-{{$timestamp}}
+@idempotencyKey = payout-{{$timestamp}}
+
+### Prerequisites: You need a valid JWT token from authentication flow
+### Replace {{accessToken}} with actual token from auth flow
+
+### 1. Create Payout - Basic Success Case
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-001
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "USD",
+  "reference": "PAY-001",
+  "metadata_json": {
+    "description": "Payment for services",
+    "category": "business"
+  }
+}
+
+###
+
+### 2. Create Payout - Different Currency (EUR)
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-002
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 250.75,
+  "currency": "EUR",
+  "reference": "PAY-002",
+  "metadata_json": {
+    "description": "International payment",
+    "category": "international"
+  }
+}
+
+###
+
+### 3. Create Payout - Large Amount
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-003
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 10000.00,
+  "currency": "USD",
+  "reference": "PAY-003",
+  "metadata_json": {
+    "description": "Large business payment",
+    "category": "business",
+    "priority": "high"
+  }
+}
+
+###
+
+### 4. Create Payout - Minimal Data
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-004
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 50.00,
+  "currency": "USD"
+}
+
+###
+
+### 5. List Payouts - First Page
+GET {{baseUrl}}/payouts/?page=1&page_size=10
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 6. List Payouts - Second Page
+GET {{baseUrl}}/payouts/?page=2&page_size=5
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 7. List Payouts - Default Pagination
+GET {{baseUrl}}/payouts/
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### Payout Error Scenarios
+
+### 8. Create Payout - Missing Required Fields
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-error-001
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50
+}
+
+###
+
+### 9. Create Payout - Invalid Currency
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-error-002
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "INVALID"
+}
+
+###
+
+### 10. Create Payout - Negative Amount
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-error-003
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": -100.50,
+  "currency": "USD"
+}
+
+###
+
+### 11. Create Payout - Zero Amount
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-error-004
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 0,
+  "currency": "USD"
+}
+
+###
+
+### 12. Create Payout - Missing Idempotency Key
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "USD"
+}
+
+###
+
+### 13. Create Payout - Duplicate Idempotency Key (should return existing payout)
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-001
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "USD",
+  "reference": "PAY-001-DUPLICATE"
+}
+
+###
+
+### 14. List Payouts - Unauthorized Access
+GET {{baseUrl}}/payouts/
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 15. List Payouts - Invalid Pagination
+GET {{baseUrl}}/payouts/?page=0&page_size=200
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### Rate Limiting Tests
+
+### 16. Rate Limiting Test - Multiple payout creation attempts
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-rate-001
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "USD",
+  "reference": "RATE-TEST-001"
+}
+
+###
+
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-rate-002
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 200.50,
+  "currency": "USD",
+  "reference": "RATE-TEST-002"
+}
+
+###
+
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-rate-003
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 300.50,
+  "currency": "USD",
+  "reference": "RATE-TEST-003"
+}
+
+###
+
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-rate-004
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 400.50,
+  "currency": "USD",
+  "reference": "RATE-TEST-004"
+}
+
+###
+
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-rate-005
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 500.50,
+  "currency": "USD",
+  "reference": "RATE-TEST-005"
+}
+
+###
+
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-rate-006
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 600.50,
+  "currency": "USD",
+  "reference": "RATE-TEST-006"
+}
+
+###
+
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-rate-007
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 700.50,
+  "currency": "USD",
+  "reference": "RATE-TEST-007"
+}
+
+###
+
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-rate-008
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 800.50,
+  "currency": "USD",
+  "reference": "RATE-TEST-008"
+}
+
+###
+
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-rate-009
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 900.50,
+  "currency": "USD",
+  "reference": "RATE-TEST-009"
+}
+
+###
+
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-rate-010
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 1000.50,
+  "currency": "USD",
+  "reference": "RATE-TEST-010"
+}
+
+###
+
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{idempotencyKey}}-rate-011
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 1100.50,
+  "currency": "USD",
+  "reference": "RATE-TEST-011"
+}
+
+###

@@ -1,0 +1,399 @@
+### Fintech Payouts API - Error Scenarios and Edge Cases
+### Base URL: http://localhost:8000
+### Description: Comprehensive error handling and edge case testing
+
+### Variables
+@baseUrl = http://localhost:8000
+@correlationId = error-test-{{$timestamp}}
+
+### Authentication Error Scenarios
+
+### 1. Invalid JSON in Login Request
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}
+
+{
+  "redirect_uri": "http://localhost:5173/auth/callback"
+  "invalid": "missing comma"
+}
+
+###
+
+### 2. Empty Request Body
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 3. Invalid Content-Type
+POST {{baseUrl}}/auth/login
+Content-Type: text/plain
+X-Correlation-ID: {{correlationId}}
+
+redirect_uri=http://localhost:5173/auth/callback
+
+###
+
+### 4. Malformed OAuth Callback
+GET {{baseUrl}}/auth/callback?code=&state=
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 5. OAuth Callback with Invalid State
+GET {{baseUrl}}/auth/callback?code=4/0AX4XfWh...&state=invalid-state-123
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### Payout Error Scenarios
+
+### 6. Invalid Amount Types
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: error-test-amount-001
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": "not-a-number",
+  "currency": "USD"
+}
+
+###
+
+### 7. Extremely Large Amount
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: error-test-amount-002
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 999999999999999.99,
+  "currency": "USD"
+}
+
+###
+
+### 8. Invalid Currency Format
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: error-test-currency-001
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "usd"
+}
+
+###
+
+### 9. Unsupported Currency
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: error-test-currency-002
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "BTC"
+}
+
+###
+
+### 10. Very Long Reference
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: error-test-reference-001
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "USD",
+  "reference": "This is a very long reference that exceeds normal limits and should cause validation errors in the system"
+}
+
+###
+
+### 11. Invalid Metadata Structure
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: error-test-metadata-001
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "USD",
+  "metadata_json": "invalid-json-string"
+}
+
+###
+
+### 12. Missing Idempotency Key
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "USD"
+}
+
+###
+
+### 13. Empty Idempotency Key
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: 
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "USD"
+}
+
+###
+
+### 14. Very Long Idempotency Key
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: {{correlationId}}-very-long-idempotency-key-that-exceeds-normal-limits-and-should-cause-validation-errors
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "USD"
+}
+
+###
+
+### Pagination Error Scenarios
+
+### 15. Negative Page Number
+GET {{baseUrl}}/payouts/?page=-1
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 16. Zero Page Number
+GET {{baseUrl}}/payouts/?page=0
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 17. Very Large Page Number
+GET {{baseUrl}}/payouts/?page=999999
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 18. Invalid Page Size
+GET {{baseUrl}}/payouts/?page_size=0
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 19. Exceeding Max Page Size
+GET {{baseUrl}}/payouts/?page_size=1000
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 20. Non-numeric Pagination Parameters
+GET {{baseUrl}}/payouts/?page=abc&page_size=xyz
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### Webhook Error Scenarios
+
+### 21. Malformed JSON in Webhook
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=calculated-hmac-signature
+X-Signature-Type: hmac_sha256
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.succeeded",
+  "event_id": "evt_{{timestamp}}",
+  "timestamp": "{{$isoTimestamp}}",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "PAY-001",
+  "status": "succeeded",
+  "amount": 100.50,
+  "currency": "USD"
+  "missing": "comma"
+}
+
+###
+
+### 22. Invalid Timestamp Format
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=calculated-hmac-signature
+X-Signature-Type: hmac_sha256
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.succeeded",
+  "event_id": "evt_{{timestamp}}",
+  "timestamp": "invalid-timestamp-format",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "PAY-002",
+  "status": "succeeded",
+  "amount": 100.50,
+  "currency": "USD"
+}
+
+###
+
+### 23. Future Timestamp
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=calculated-hmac-signature
+X-Signature-Type: hmac_sha256
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.succeeded",
+  "event_id": "evt_{{timestamp}}",
+  "timestamp": "2030-01-01T00:00:00Z",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "PAY-003",
+  "status": "succeeded",
+  "amount": 100.50,
+  "currency": "USD"
+}
+
+###
+
+### 24. Missing Required Webhook Fields
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=calculated-hmac-signature
+X-Signature-Type: hmac_sha256
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.succeeded",
+  "event_id": "evt_{{timestamp}}"
+}
+
+###
+
+### 25. Invalid Signature Type
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=calculated-hmac-signature
+X-Signature-Type: invalid_signature_type
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.succeeded",
+  "event_id": "evt_{{timestamp}}",
+  "timestamp": "{{$isoTimestamp}}",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "PAY-004",
+  "status": "succeeded",
+  "amount": 100.50,
+  "currency": "USD"
+}
+
+###
+
+### Security Error Scenarios
+
+### 26. SQL Injection Attempt in Reference
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: error-test-sql-001
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "USD",
+  "reference": "'; DROP TABLE payouts; --"
+}
+
+###
+
+### 27. XSS Attempt in Metadata
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: error-test-xss-001
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "USD",
+  "metadata_json": {
+    "description": "<script>alert('XSS')</script>",
+    "category": "malicious"
+  }
+}
+
+###
+
+### 28. Very Long Correlation ID
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}-very-long-correlation-id-that-exceeds-normal-limits-and-should-cause-validation-errors-in-the-system
+
+{
+  "redirect_uri": "http://localhost:5173/auth/callback"
+}
+
+###
+
+### 29. Special Characters in Idempotency Key
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: error-test-special-chars-!@#$%^&*()
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "USD"
+}
+
+###
+
+### 30. Unicode Characters in Reference
+POST {{baseUrl}}/payouts/
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Idempotency-Key: error-test-unicode-001
+X-Correlation-ID: {{correlationId}}
+
+{
+  "amount": 100.50,
+  "currency": "USD",
+  "reference": "PAY-测试-🚀-特殊字符"
+}
+
+###

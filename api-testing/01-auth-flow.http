@@ -1,0 +1,152 @@
+### Fintech Payouts API - Authentication Flow Tests
+### Base URL: http://localhost:8000
+### Description: Complete OAuth 2.0 authentication flow with Google
+
+### Variables
+@baseUrl = http://localhost:8000
+@frontendUrl = http://localhost:5173
+@correlationId = auth-test-{{$timestamp}}
+
+### 1. Health Check
+GET {{baseUrl}}/health
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 2. Initiate OAuth Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}
+
+{
+  "redirect_uri": "{{frontendUrl}}/auth/callback"
+}
+
+###
+
+### 3. OAuth Callback (Simulated - requires actual OAuth flow)
+# Note: This would normally be called by Google OAuth provider
+# For testing, you would need to complete the actual OAuth flow
+GET {{baseUrl}}/auth/callback?code=4/0AX4XfWh...&state=secure-state-param-123
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 4. Get Current User Info (requires valid JWT token)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 5. Refresh Access Token (requires valid JWT token)
+POST {{baseUrl}}/auth/refresh
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 6. Logout User (requires valid JWT token)
+POST {{baseUrl}}/auth/logout
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "correlation_id": "{{correlationId}}"
+}
+
+###
+
+### Authentication Error Scenarios
+
+### 7. Invalid Login Request - Missing redirect_uri
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}
+
+{
+  "invalid_field": "test"
+}
+
+###
+
+### 8. Invalid OAuth Callback - Missing state
+GET {{baseUrl}}/auth/callback?code=4/0AX4XfWh...
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 9. Unauthorized Access - No token
+GET {{baseUrl}}/auth/me
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 10. Unauthorized Access - Invalid token
+GET {{baseUrl}}/auth/me
+Authorization: Bearer invalid-token-here
+X-Correlation-ID: {{correlationId}}
+
+###
+
+### 11. Rate Limiting Test - Multiple login attempts
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Correlation-ID: rate-limit-test-1
+
+{
+  "redirect_uri": "{{frontendUrl}}/auth/callback"
+}
+
+###
+
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Correlation-ID: rate-limit-test-2
+
+{
+  "redirect_uri": "{{frontendUrl}}/auth/callback"
+}
+
+###
+
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Correlation-ID: rate-limit-test-3
+
+{
+  "redirect_uri": "{{frontendUrl}}/auth/callback"
+}
+
+###
+
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Correlation-ID: rate-limit-test-4
+
+{
+  "redirect_uri": "{{frontendUrl}}/auth/callback"
+}
+
+###
+
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Correlation-ID: rate-limit-test-5
+
+{
+  "redirect_uri": "{{frontendUrl}}/auth/callback"
+}
+
+###
+
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Correlation-ID: rate-limit-test-6
+
+{
+  "redirect_uri": "{{frontendUrl}}/auth/callback"
+}
+
+###

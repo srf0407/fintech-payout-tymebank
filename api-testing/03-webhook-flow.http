@@ -1,0 +1,257 @@
+### Fintech Payouts API - Webhook Flow Tests
+### Base URL: http://localhost:8000
+### Description: Webhook processing with signature verification
+
+### Variables
+@baseUrl = http://localhost:8000
+@correlationId = webhook-test-{{$timestamp}}
+@webhookSecret = your-webhook-secret-minimum-32-characters-long
+
+### Note: Replace @webhookSecret with actual secret from environment
+
+### 1. Payment Succeeded Webhook - HMAC SHA256
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=calculated-hmac-signature
+X-Signature-Type: hmac_sha256
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.succeeded",
+  "event_id": "evt_{{timestamp}}",
+  "timestamp": "{{$isoTimestamp}}",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "PAY-001",
+  "status": "succeeded",
+  "amount": 100.50,
+  "currency": "USD",
+  "error_code": null,
+  "error_message": null,
+  "metadata": {
+    "provider": "mock_provider",
+    "processing_time": "2.5s"
+  }
+}
+
+###
+
+### 2. Payment Failed Webhook - HMAC SHA1
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha1=calculated-hmac-signature
+X-Signature-Type: hmac_sha1
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.failed",
+  "event_id": "evt_{{timestamp}}",
+  "timestamp": "{{$isoTimestamp}}",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "PAY-002",
+  "status": "failed",
+  "amount": 250.75,
+  "currency": "EUR",
+  "error_code": "INSUFFICIENT_FUNDS",
+  "error_message": "Account has insufficient funds",
+  "metadata": {
+    "provider": "mock_provider",
+    "retry_count": 3
+  }
+}
+
+###
+
+### 3. Payment Updated Webhook - JWT Signature
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: Bearer jwt-token-here
+X-Signature-Type: jwt
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.updated",
+  "event_id": "evt_{{timestamp}}",
+  "timestamp": "{{$isoTimestamp}}",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "PAY-003",
+  "status": "processing",
+  "amount": 1000.00,
+  "currency": "USD",
+  "error_code": null,
+  "error_message": null,
+  "metadata": {
+    "provider": "mock_provider",
+    "status_change": "pending_to_processing"
+  }
+}
+
+###
+
+### 4. Payment Cancelled Webhook
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=calculated-hmac-signature
+X-Signature-Type: hmac_sha256
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.cancelled",
+  "event_id": "evt_{{timestamp}}",
+  "timestamp": "{{$isoTimestamp}}",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "PAY-004",
+  "status": "cancelled",
+  "amount": 500.00,
+  "currency": "USD",
+  "error_code": "USER_CANCELLED",
+  "error_message": "Payment cancelled by user",
+  "metadata": {
+    "provider": "mock_provider",
+    "cancellation_reason": "user_request"
+  }
+}
+
+###
+
+### Webhook Error Scenarios
+
+### 5. Missing Signature Header
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.succeeded",
+  "event_id": "evt_{{timestamp}}",
+  "timestamp": "{{$isoTimestamp}}",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "PAY-005",
+  "status": "succeeded",
+  "amount": 100.50,
+  "currency": "USD"
+}
+
+###
+
+### 6. Invalid Signature
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=invalid-signature-here
+X-Signature-Type: hmac_sha256
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.succeeded",
+  "event_id": "evt_{{timestamp}}",
+  "timestamp": "{{$isoTimestamp}}",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "PAY-006",
+  "status": "succeeded",
+  "amount": 100.50,
+  "currency": "USD"
+}
+
+###
+
+### 7. Old Timestamp (Replay Attack)
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=calculated-hmac-signature
+X-Signature-Type: hmac_sha256
+X-Timestamp: 1609459200
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.succeeded",
+  "event_id": "evt_{{timestamp}}",
+  "timestamp": "2021-01-01T00:00:00Z",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "PAY-007",
+  "status": "succeeded",
+  "amount": 100.50,
+  "currency": "USD"
+}
+
+###
+
+### 8. Missing Required Fields
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=calculated-hmac-signature
+X-Signature-Type: hmac_sha256
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.succeeded",
+  "event_id": "evt_{{timestamp}}"
+}
+
+###
+
+### 9. Invalid Event Type
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=calculated-hmac-signature
+X-Signature-Type: hmac_sha256
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "invalid.event.type",
+  "event_id": "evt_{{timestamp}}",
+  "timestamp": "{{$isoTimestamp}}",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "PAY-008",
+  "status": "succeeded",
+  "amount": 100.50,
+  "currency": "USD"
+}
+
+###
+
+### 10. Duplicate Event ID (Idempotency Test)
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=calculated-hmac-signature
+X-Signature-Type: hmac_sha256
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.succeeded",
+  "event_id": "evt_duplicate_test",
+  "timestamp": "{{$isoTimestamp}}",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "PAY-009",
+  "status": "succeeded",
+  "amount": 100.50,
+  "currency": "USD"
+}
+
+###
+
+POST {{baseUrl}}/webhooks/payments
+Content-Type: application/json
+X-Signature: sha256=calculated-hmac-signature
+X-Signature-Type: hmac_sha256
+X-Timestamp: {{$timestamp}}
+X-Correlation-ID: {{correlationId}}
+
+{
+  "event_type": "payment.succeeded",
+  "event_id": "evt_duplicate_test",
+  "timestamp": "{{$isoTimestamp}}",
+  "payment_id": "pay_{{timestamp}}",
+  "reference": "PAY-009",
+  "status": "succeeded",
+  "amount": 100.50,
+  "currency": "USD"
+}
+
+###
