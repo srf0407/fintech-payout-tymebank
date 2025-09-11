@@ -198,7 +198,6 @@ const DashboardPage: React.FC = () => {
 						Log out
 					</Button>
 				</div>
-				// ...existing code...
 				{/* Payout Form (UI only, no integration) */}
 				<div className={styles.payoutSection}>
 					<Typography variant='h6' fontWeight={600} gutterBottom>

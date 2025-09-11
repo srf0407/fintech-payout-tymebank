@@ -52,14 +52,17 @@ class PayoutService {
 		payoutData: CreatePayoutRequest
 	): Promise<CreatePayoutResponse> {
 		try {
-			const response = await fetch(`${this.baseUrl}/payouts`, {
-				method: "POST",
-				credentials: "include", // Include cookies
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify(payoutData),
-			});
+				const { idempotency_key, ...bodyData } = payoutData;
+
+				const response = await fetch(`${this.baseUrl}/payouts`, {
+					method: "POST",
+					credentials: "include", // Include cookies
+					headers: {
+						"Content-Type": "application/json",
+						...(idempotency_key && { "Idempotency-Key": idempotency_key }),
+					},
+					body: JSON.stringify(bodyData),
+				});
 
 			if (!response.ok) {
 				const errorData: ApiError = await response.json();
