@@ -3,10 +3,7 @@
  * Polls the backend API at regular intervals to check for status changes.
  */
 
-import {
-	payoutService,
-	type Payout,
-} from "./payoutService";
+import { payoutService, type Payout } from "./payoutService";
 
 export type { Payout };
 
@@ -27,6 +24,8 @@ class PollingService {
 	private lastUpdate: Date | null = null;
 	private error: string | null = null;
 	private currentPayouts: Payout[] = [];
+	private currentPage: number = 1;
+	private perPage: number = 10;
 
 	private payoutUpdateCallbacks: Set<PayoutUpdateCallback> = new Set();
 	private statusCallbacks: Set<PollingStatusCallback> = new Set();
@@ -76,6 +75,14 @@ class PollingService {
 	 */
 	updateCurrentPayouts(payouts: Payout[]): void {
 		this.currentPayouts = payouts ? [...payouts] : [];
+	}
+
+	/**
+	 * Update the current page and per page settings
+	 */
+	updateCurrentPage(page: number, perPage: number = 10): void {
+		this.currentPage = page;
+		this.perPage = perPage;
 	}
 
 	/**
@@ -134,8 +141,11 @@ class PollingService {
 				return;
 			}
 
-			// Get current payouts from API
-			const response = await payoutService.getPayouts(1, 100); // Get first 100 payouts
+			// Get current payouts from API for the current page
+			const response = await payoutService.getPayouts(
+				this.currentPage,
+				this.perPage
+			);
 			const newPayouts = response.items;
 
 			// Check for changes

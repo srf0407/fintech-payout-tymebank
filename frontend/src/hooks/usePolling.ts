@@ -1,7 +1,6 @@
 /**
  * React hook for polling-based real-time updates.
  */
-
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
 	pollingService,
@@ -25,6 +24,10 @@ export const usePolling = (): UsePollingReturn => {
 
 	const updatePayouts = useCallback((payouts: Payout[]) => {
 		pollingService.updateCurrentPayouts(payouts);
+	}, []);
+
+	const updateCurrentPage = useCallback((page: number, perPage?: number) => {
+		pollingService.updateCurrentPage(page, perPage);
 	}, []);
 
 	const onPayoutUpdate = useCallback(
@@ -58,6 +61,7 @@ export const usePolling = (): UsePollingReturn => {
 		startPolling,
 		stopPolling,
 		updatePayouts,
+		updateCurrentPage,
 		onPayoutUpdate,
 	};
 };
