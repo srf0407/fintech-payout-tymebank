@@ -46,6 +46,18 @@ class TestOAuthSecurity:
         state = generate_oauth_state()
         assert validate_oauth_state(state) is True
     
+    def test_pkce_code_verifier_generation(self):
+        """Test PKCE code verifier and challenge generation."""
+        code_verifier = generate_code_verifier()
+        code_challenge = generate_code_challenge(code_verifier)
+        
+        assert isinstance(code_verifier, str)
+        assert len(code_verifier) >= 43  # Minimum length for 32 bytes base64
+        assert code_verifier.replace('-', '').replace('_', '').isalnum()
+        
+        assert code_challenge != code_verifier
+        assert len(code_challenge) == 43  # SHA256 hash base64 encoded
+    
     def test_validate_oauth_state_invalid_format(self):
         """Test invalid OAuth state format."""
         with pytest.raises(OAuthStateError):

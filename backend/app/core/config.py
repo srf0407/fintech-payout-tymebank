@@ -21,6 +21,15 @@ class Settings(BaseSettings):
     
     rate_limit_per_minute: int = 10
     
+    auth_login_rate_limit: int = 5
+    auth_login_window_minutes: int = 15
+    auth_callback_rate_limit: int = 10
+    auth_callback_window_minutes: int = 5
+    auth_refresh_rate_limit: int = 20
+    auth_refresh_window_minutes: int = 5
+    auth_general_rate_limit: int = 30
+    auth_general_window_minutes: int = 5
+    
     payment_provider_base_url: str = "http://localhost:8000/mock-provider"
     payment_provider_timeout: int = 30
 

@@ -7,11 +7,18 @@ from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 
-from ..deps import AuthServiceDep, CorrelationID, get_current_user
+from ..deps import (
+    AuthServiceDep, 
+    CorrelationID, 
+    get_current_user,
+    AuthLoginRateLimit,
+    AuthCallbackRateLimit,
+    TokenRefreshRateLimit,
+    AuthGeneralRateLimit
+)
 from ...schemas.auth import (
     OAuthLoginRequest,
     OAuthLoginResponse,
-    OAuthCallbackRequest,
     TokenResponse,
     AuthErrorResponse,
     LogoutRequest,
@@ -31,7 +38,8 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 async def initiate_login(
     request_data: OAuthLoginRequest,
     auth_service: AuthServiceDep,
-    correlation_id: CorrelationID
+    correlation_id: CorrelationID,
+    _: AuthLoginRateLimit
 ) -> OAuthLoginResponse:
     """
     Initiate OAuth 2.0 login flow with secure state and PKCE.
@@ -70,61 +78,14 @@ async def initiate_login(
         )
 
 
-@router.post("/callback", response_model=TokenResponse)
-async def handle_callback(
-    request_data: OAuthCallbackRequest,
-    auth_service: AuthServiceDep,
-    correlation_id: CorrelationID
-) -> TokenResponse:
-    """
-    Handle OAuth 2.0 callback and exchange authorization code for tokens.
-    
-    This endpoint:
-    - Validates state parameter for CSRF protection
-    - Exchanges authorization code for access token using PKCE
-    - Fetches user information from Google
-    - Creates or updates user in database
-    - Returns JWT access token
-    """
-    try:
-        logger.info("OAuth callback received", extra={
-            "correlation_id": correlation_id,
-            "state": request_data.state[:8] + "...",
-            "redirect_uri": request_data.redirect_uri
-        })
-        
-        token_response = await auth_service.handle_oauth_callback(
-            code=request_data.code,
-            state=request_data.state,
-            code_verifier=request_data.code_verifier,
-            redirect_uri=request_data.redirect_uri
-        )
-        
-        logger.info("OAuth callback successful", extra={
-            "correlation_id": correlation_id,
-            "user_id": token_response.user.id
-        })
-        
-        return token_response
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("OAuth callback failed", extra={
-            "correlation_id": correlation_id,
-            "error": str(e)
-        })
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="OAuth callback processing failed"
-        )
 
 
 @router.get("/callback")
 async def oauth_callback(
     request: Request,
     auth_service: AuthServiceDep,
-    correlation_id: CorrelationID
+    correlation_id: CorrelationID,
+    _: AuthCallbackRateLimit
 ) -> RedirectResponse:
     """
     Handle OAuth callback via GET request (for browser redirects).
@@ -171,7 +132,6 @@ async def oauth_callback(
         token_response = await auth_service.handle_oauth_callback(
             code=code,
             state=state,
-            code_verifier="",
             redirect_uri=redirect_uri
         )
         
@@ -219,7 +179,8 @@ async def oauth_callback(
 async def google_callback(
     request: Request,
     auth_service: AuthServiceDep,
-    correlation_id: CorrelationID
+    correlation_id: CorrelationID,
+    _: AuthCallbackRateLimit
 ) -> RedirectResponse:
     """
     Handle Google OAuth callback via GET request (for browser redirects).
@@ -266,7 +227,6 @@ async def google_callback(
         token_response = await auth_service.handle_oauth_callback(
             code=code,
             state=state,
-            code_verifier="",  
             redirect_uri=redirect_uri
         )
         
@@ -315,6 +275,7 @@ async def refresh_token(
     request: Request,
     correlation_id: CorrelationID,
     auth_service: AuthServiceDep,
+    _: TokenRefreshRateLimit,
     current_user = Depends(get_current_user)
 ) -> TokenResponse:
     """
@@ -373,6 +334,7 @@ async def logout(
     request_data: LogoutRequest,
     correlation_id: CorrelationID,
     auth_service: AuthServiceDep,
+    _: AuthGeneralRateLimit,
     current_user = Depends(get_current_user)
 ) -> LogoutResponse:
     """
@@ -427,6 +389,7 @@ async def logout(
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
     correlation_id: CorrelationID,
+    _: AuthGeneralRateLimit,
     current_user = Depends(get_current_user)
 ) -> UserResponse:
     """
@@ -459,7 +422,8 @@ async def get_current_user_info(
 @router.post("/test-token", response_model=TokenResponse)
 async def create_test_token(
     correlation_id: CorrelationID,
-    auth_service: AuthServiceDep
+    auth_service: AuthServiceDep,
+    _: AuthGeneralRateLimit
 ) -> TokenResponse:
     """
     Create a test JWT token for development/testing purposes.

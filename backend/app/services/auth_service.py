@@ -102,7 +102,6 @@ class AuthService:
         self, 
         code: str, 
         state: str, 
-        code_verifier: str, 
         redirect_uri: str
     ) -> TokenResponse:
         """
@@ -147,8 +146,17 @@ class AuthService:
                     detail="Redirect URI mismatch"
                 )
             
-            code_verifier_to_use = stored_code_verifier if stored_code_verifier else code_verifier
-            token_data = await exchange_oauth_code_for_token(code, code_verifier_to_use, redirect_uri)
+            if not stored_code_verifier:
+                logger.warning("Code verifier not found in OAuth session", extra={
+                    "correlation_id": correlation_id,
+                    "state": state[:8] + "..."
+                })
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Code verifier not found in session"
+                )
+            
+            token_data = await exchange_oauth_code_for_token(code, stored_code_verifier, redirect_uri)
             
             user_info = await get_google_user_info(token_data["access_token"])
             google_user = GoogleUserInfo(**user_info)

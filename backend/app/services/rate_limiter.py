@@ -199,10 +199,32 @@ class RateLimiterService:
             max_requests=settings.rate_limit_per_minute
         )
         
-    
+        self.auth_login_limiter = SlidingWindowRateLimiter(
+            window_size_seconds=settings.auth_login_window_minutes * 60,
+            max_requests=settings.auth_login_rate_limit
+        )
+        
+        self.auth_callback_limiter = SlidingWindowRateLimiter(
+            window_size_seconds=settings.auth_callback_window_minutes * 60,
+            max_requests=settings.auth_callback_rate_limit
+        )
+        
+        self.token_refresh_limiter = SlidingWindowRateLimiter(
+            window_size_seconds=settings.auth_refresh_window_minutes * 60,
+            max_requests=settings.auth_refresh_rate_limit
+        )
+        
+        self.auth_general_limiter = SlidingWindowRateLimiter(
+            window_size_seconds=settings.auth_general_window_minutes * 60,
+            max_requests=settings.auth_general_rate_limit
+        )
         
         logger.info("Rate limiter service initialized", extra={
-            "payout_rate_limit": settings.rate_limit_per_minute
+            "payout_rate_limit": settings.rate_limit_per_minute,
+            "auth_login_limit": settings.auth_login_rate_limit,
+            "auth_callback_limit": settings.auth_callback_rate_limit,
+            "token_refresh_limit": settings.auth_refresh_rate_limit,
+            "auth_general_limit": settings.auth_general_rate_limit
         })
     
     def check_payout_rate_limit(
@@ -233,30 +255,167 @@ class RateLimiterService:
         """Reset payout rate limit for a user."""
         self.payout_limiter.reset_user_limit(user_id)
     
+    def check_auth_login_rate_limit(
+        self,
+        user_id: str,
+        correlation_id: Optional[str] = None
+    ) -> Dict[str, int]:
+        """
+        Check rate limit for auth login attempts.
+        
+        Args:
+            user_id: User identifier (IP address for anonymous users)
+            correlation_id: Correlation ID for logging
+            
+        Returns:
+            Dict with remaining requests and reset time
+            
+        Raises:
+            RateLimitExceeded: If rate limit is exceeded
+        """
+        return self.auth_login_limiter.check_rate_limit(user_id, correlation_id)
+    
+    def check_auth_callback_rate_limit(
+        self,
+        user_id: str,
+        correlation_id: Optional[str] = None
+    ) -> Dict[str, int]:
+        """
+        Check rate limit for auth callback attempts.
+        
+        Args:
+            user_id: User identifier (IP address for anonymous users)
+            correlation_id: Correlation ID for logging
+            
+        Returns:
+            Dict with remaining requests and reset time
+            
+        Raises:
+            RateLimitExceeded: If rate limit is exceeded
+        """
+        return self.auth_callback_limiter.check_rate_limit(user_id, correlation_id)
+    
+    def check_token_refresh_rate_limit(
+        self,
+        user_id: str,
+        correlation_id: Optional[str] = None
+    ) -> Dict[str, int]:
+        """
+        Check rate limit for token refresh attempts.
+        
+        Args:
+            user_id: User identifier
+            correlation_id: Correlation ID for logging
+            
+        Returns:
+            Dict with remaining requests and reset time
+            
+        Raises:
+            RateLimitExceeded: If rate limit is exceeded
+        """
+        return self.token_refresh_limiter.check_rate_limit(user_id, correlation_id)
+    
+    def check_auth_general_rate_limit(
+        self,
+        user_id: str,
+        correlation_id: Optional[str] = None
+    ) -> Dict[str, int]:
+        """
+        Check rate limit for general auth endpoints.
+        
+        Args:
+            user_id: User identifier
+            correlation_id: Correlation ID for logging
+            
+        Returns:
+            Dict with remaining requests and reset time
+            
+        Raises:
+            RateLimitExceeded: If rate limit is exceeded
+        """
+        return self.auth_general_limiter.check_rate_limit(user_id, correlation_id)
+    
+    def get_auth_login_rate_limit_info(self, user_id: str) -> Dict[str, int]:
+        """Get auth login rate limit information for a user."""
+        return self.auth_login_limiter.get_rate_limit_info(user_id)
+    
+    def get_auth_callback_rate_limit_info(self, user_id: str) -> Dict[str, int]:
+        """Get auth callback rate limit information for a user."""
+        return self.auth_callback_limiter.get_rate_limit_info(user_id)
+    
+    def get_token_refresh_rate_limit_info(self, user_id: str) -> Dict[str, int]:
+        """Get token refresh rate limit information for a user."""
+        return self.token_refresh_limiter.get_rate_limit_info(user_id)
+    
+    def get_auth_general_rate_limit_info(self, user_id: str) -> Dict[str, int]:
+        """Get general auth rate limit information for a user."""
+        return self.auth_general_limiter.get_rate_limit_info(user_id)
+    
+    def reset_auth_rate_limits(self, user_id: str):
+        """Reset all auth rate limits for a user."""
+        self.auth_login_limiter.reset_user_limit(user_id)
+        self.auth_callback_limiter.reset_user_limit(user_id)
+        self.token_refresh_limiter.reset_user_limit(user_id)
+        self.auth_general_limiter.reset_user_limit(user_id)
+        logger.info("All auth rate limits reset for user", extra={"user_id": user_id})
+    
     def get_service_stats(self) -> Dict[str, Dict[str, int]]:
         """Get statistics for all rate limiters."""
         return {
-            "payout_limiter": self.payout_limiter.get_stats()
+            "payout_limiter": self.payout_limiter.get_stats(),
+            "auth_login_limiter": self.auth_login_limiter.get_stats(),
+            "auth_callback_limiter": self.auth_callback_limiter.get_stats(),
+            "token_refresh_limiter": self.token_refresh_limiter.get_stats(),
+            "auth_general_limiter": self.auth_general_limiter.get_stats()
         }
 
 
 rate_limiter_service = RateLimiterService()
 
 
-def create_rate_limit_exception(retry_after: int, correlation_id: str) -> HTTPException:
+def get_client_identifier(request) -> str:
+    """
+    Get a unique identifier for rate limiting.
+    Uses IP address for anonymous users, user ID for authenticated users.
+    """
+    if hasattr(request.state, 'user_id') and request.state.user_id:
+        return str(request.state.user_id)
+    
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        client_ip = forwarded_for.split(",")[0].strip()
+    else:
+        client_ip = request.client.host if request.client else "unknown"
+    
+    return f"ip:{client_ip}"
+
+
+def create_rate_limit_exception(retry_after: int, correlation_id: str, limit_type: str = "general") -> HTTPException:
     """Create a standardized rate limit HTTP exception."""
+    limits = {
+        "login": settings.auth_login_rate_limit,
+        "callback": settings.auth_callback_rate_limit,
+        "refresh": settings.auth_refresh_rate_limit,
+        "general": settings.auth_general_rate_limit,
+        "payout": settings.rate_limit_per_minute
+    }
+    
+    limit = limits.get(limit_type, settings.auth_general_rate_limit)
+    
     return HTTPException(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         detail={
             "error": "rate_limit_exceeded",
-            "message": "Too many requests. Please try again later.",
+            "message": f"Too many {limit_type} requests. Please try again later.",
             "retry_after": retry_after,
-            "correlation_id": correlation_id
+            "correlation_id": correlation_id,
+            "limit_type": limit_type
         },
         headers={
             "Retry-After": str(retry_after),
-            "X-RateLimit-Limit": str(settings.rate_limit_per_minute),
+            "X-RateLimit-Limit": str(limit),
             "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": str(int(time.time()) + retry_after)
+            "X-RateLimit-Reset": str(int(time.time()) + retry_after),
+            "X-RateLimit-Type": limit_type
         }
     )
