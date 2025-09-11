@@ -34,7 +34,6 @@ export interface AuthError {
 
 class AuthService {
 	private baseUrl: string;
-	private tokenKey = "auth_token";
 	private userKey = "user_profile";
 
 	constructor() {
@@ -98,7 +97,8 @@ class AuthService {
 			}
 
 			const tokenData: TokenResponse = await response.json();
-			this.storeAuthData(tokenData);
+			// Store user data (token is in cookie)
+			sessionStorage.setItem(this.userKey, JSON.stringify(tokenData.user));
 
 			return tokenData;
 		} catch (error) {
@@ -112,14 +112,9 @@ class AuthService {
 	 */
 	async getCurrentUser(): Promise<UserProfile> {
 		try {
-			const token = this.getStoredToken();
-			if (!token) {
-				throw new Error("No authentication token found");
-			}
-
 			const response = await fetch(`${this.baseUrl}/auth/me`, {
+				credentials: "include", // Include cookies
 				headers: {
-					Authorization: `Bearer ${token}`,
 					"Content-Type": "application/json",
 				},
 			});
@@ -153,15 +148,10 @@ class AuthService {
 	 */
 	async refreshToken(): Promise<TokenResponse> {
 		try {
-			const token = this.getStoredToken();
-			if (!token) {
-				throw new Error("No token to refresh");
-			}
-
 			const response = await fetch(`${this.baseUrl}/auth/refresh`, {
 				method: "POST",
+				credentials: "include", // Include cookies
 				headers: {
-					Authorization: `Bearer ${token}`,
 					"Content-Type": "application/json",
 				},
 			});
@@ -172,7 +162,8 @@ class AuthService {
 			}
 
 			const tokenData: TokenResponse = await response.json();
-			this.storeAuthData(tokenData);
+			// Store user data (token is in cookie)
+			sessionStorage.setItem(this.userKey, JSON.stringify(tokenData.user));
 
 			return tokenData;
 		} catch (error) {
@@ -188,19 +179,16 @@ class AuthService {
 	 */
 	async logout(): Promise<void> {
 		try {
-			const token = this.getStoredToken();
-			if (token) {
-				await fetch(`${this.baseUrl}/auth/logout`, {
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${token}`,
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						correlation_id: this.generateCorrelationId(),
-					}),
-				});
-			}
+			await fetch(`${this.baseUrl}/auth/logout`, {
+				method: "POST",
+				credentials: "include", // Include cookies
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					correlation_id: this.generateCorrelationId(),
+				}),
+			});
 		} catch (error) {
 			console.error("Logout request failed:", error);
 		} finally {
@@ -213,16 +201,8 @@ class AuthService {
 	 * Check if user is authenticated
 	 */
 	isAuthenticated(): boolean {
-		const token = this.getStoredToken();
 		const user = this.getStoredUser();
-		return !!(token && user);
-	}
-
-	/**
-	 * Get stored authentication token
-	 */
-	getStoredToken(): string | null {
-		return sessionStorage.getItem(this.tokenKey);
+		return !!user;
 	}
 
 	/**
@@ -240,20 +220,11 @@ class AuthService {
 	}
 
 	/**
-	 * Store authentication data in sessionStorage
+	 * Clear authentication data from sessionStorage
 	 */
-	private storeAuthData(tokenData: TokenResponse): void {
-		sessionStorage.setItem(this.tokenKey, tokenData.access_token);
-		sessionStorage.setItem(this.userKey, JSON.stringify(tokenData.user));
+	public clearAuthData(): void {
+		sessionStorage.removeItem(this.userKey);
 	}
-
-	   /**
-		* Clear authentication data from sessionStorage
-		*/
-	   public clearAuthData(): void {
-		   sessionStorage.removeItem(this.tokenKey);
-		   sessionStorage.removeItem(this.userKey);
-	   }
 
 	/**
 	 * Generate correlation ID for request tracing

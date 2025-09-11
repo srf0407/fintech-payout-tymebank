@@ -52,15 +52,10 @@ class PayoutService {
 		payoutData: CreatePayoutRequest
 	): Promise<CreatePayoutResponse> {
 		try {
-			const token = this.getAuthToken();
-			if (!token) {
-				throw new Error("Authentication required");
-			}
-
 			const response = await fetch(`${this.baseUrl}/payouts`, {
 				method: "POST",
+				credentials: "include", // Include cookies
 				headers: {
-					Authorization: `Bearer ${token}`,
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify(payoutData),
@@ -86,16 +81,11 @@ class PayoutService {
 		perPage: number = 10
 	): Promise<PayoutsListResponse> {
 		try {
-			const token = this.getAuthToken();
-			if (!token) {
-				throw new Error("Authentication required");
-			}
-
 			const response = await fetch(
 				`${this.baseUrl}/payouts?page=${page}&per_page=${perPage}`,
 				{
+					credentials: "include", // Include cookies
 					headers: {
-						Authorization: `Bearer ${token}`,
 						"Content-Type": "application/json",
 					},
 				}
@@ -118,14 +108,9 @@ class PayoutService {
 	 */
 	async getPayout(payoutId: string): Promise<Payout> {
 		try {
-			const token = this.getAuthToken();
-			if (!token) {
-				throw new Error("Authentication required");
-			}
-
 			const response = await fetch(`${this.baseUrl}/payouts/${payoutId}`, {
+				credentials: "include", // Include cookies
 				headers: {
-					Authorization: `Bearer ${token}`,
 					"Content-Type": "application/json",
 				},
 			});
@@ -140,13 +125,6 @@ class PayoutService {
 			console.error("Get payout failed:", error);
 			throw error;
 		}
-	}
-
-	/**
-	 * Get authentication token from sessionStorage
-	 */
-	private getAuthToken(): string | null {
-		return sessionStorage.getItem("auth_token");
 	}
 
 	/**

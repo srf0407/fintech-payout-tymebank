@@ -24,23 +24,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 	// Initialize authentication state on mount
 	useEffect(() => {
 		const initializeAuth = async () => {
-			const isAuth = authService.isAuthenticated();
-			if (isAuth) {
-				try {
-					// Prefer stored user for fast load, else fetch fresh
-					const storedUser = authService.getStoredUser();
-					if (storedUser) {
-						setUser(storedUser);
-					} else {
-						const freshUser = await authService.getCurrentUser();
-						setUser(freshUser);
-					}
-				} catch (err) {
-					authService.clearAuthData();
-					setUser(null);
-				}
-			} else {
+			setIsLoading(true);
+			try {
+				// Try to get current user (this will check the cookie)
+				const freshUser = await authService.getCurrentUser();
+				setUser(freshUser);
+			} catch (err) {
+				// If we can't get user, clear any stored data and set user to null
+				authService.clearAuthData();
 				setUser(null);
+			} finally {
+				setIsLoading(false);
 			}
 		};
 		initializeAuth();
