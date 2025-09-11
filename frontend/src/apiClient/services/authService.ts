@@ -3,14 +3,7 @@
  * Handles secure OAuth 2.0 flow with state, nonce, and PKCE.
  */
 
-export interface UserProfile {
-	id: string;
-	google_id: string;
-	email: string;
-	name: string | null;
-	picture_url: string | null;
-	created_at: string;
-}
+import type { UserProfile } from '../../types';
 
 export interface TokenResponse {
 	access_token: string;

@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import { Typography, Box, CircularProgress, Alert } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../apiClient/services/authService";
 import { useAuth } from "../auth/AuthContext";
 
-const AuthCallbackPage = () => {
+const AuthCallbackPage = memo(() => {
 	const navigate = useNavigate();
 	const { setUser } = useAuth();
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -58,14 +58,16 @@ const AuthCallbackPage = () => {
 			justifyContent='center'
 			minHeight='100vh'
 			gap={2}
+			role="status"
+			aria-live="polite"
 		>
 			{errorMsg ? (
-				<Alert severity='error' sx={{ mt: 2, maxWidth: 400 }}>
+				<Alert severity='error' sx={{ mt: 2, maxWidth: 400 }} role="alert">
 					{errorMsg}
 				</Alert>
 			) : (
 				<>
-					{loading && <CircularProgress size={40} />}
+					{loading && <CircularProgress size={40} aria-label="Processing authentication" />}
 					<Typography variant='h6' color='text.secondary'>
 						Completing authentication...
 					</Typography>
@@ -76,6 +78,8 @@ const AuthCallbackPage = () => {
 			)}
 		</Box>
 	);
-};
+});
+
+AuthCallbackPage.displayName = 'AuthCallbackPage';
 
 export default AuthCallbackPage;

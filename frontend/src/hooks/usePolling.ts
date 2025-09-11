@@ -6,19 +6,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import {
 	pollingService,
 	type PollingStatus,
-	type Payout,
 } from "../apiClient/services/pollingService";
-
-export interface UsePollingReturn {
-	isPolling: boolean;
-	lastUpdate: Date | null;
-	error: string | null;
-	pollCount: number;
-	startPolling: (payouts: Payout[]) => void;
-	stopPolling: () => void;
-	updatePayouts: (payouts: Payout[]) => void;
-	onPayoutUpdate: (callback: (payouts: Payout[]) => void) => () => void;
-}
+import type { UsePollingReturn, Payout } from "../types";
 
 export const usePolling = (): UsePollingReturn => {
 	const [status, setStatus] = useState<PollingStatus>(

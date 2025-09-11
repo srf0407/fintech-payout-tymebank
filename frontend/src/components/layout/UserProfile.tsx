@@ -1,0 +1,105 @@
+import React, { memo } from 'react';
+import {
+  Typography,
+  Button,
+  IconButton,
+  Tooltip,
+} from '@mui/material';
+import { WifiOff, Sync, SyncProblem } from '@mui/icons-material';
+import type { UserProfileProps, PollingIndicatorProps } from '../../types';
+import styles from './UserProfile.module.css';
+
+const PollingIndicator = memo<PollingIndicatorProps>(({ 
+  isPolling, 
+  lastUpdate, 
+  error, 
+  pollCount 
+}) => {
+  const getPollingIcon = () => {
+    if (isPolling) {
+      return <Sync className="animate-spin" color="success" />;
+    } else if (error) {
+      return <SyncProblem color="error" />;
+    } else {
+      return <WifiOff color="disabled" />;
+    }
+  };
+
+  const getPollingTooltip = () => {
+    if (isPolling) {
+      const lastUpdateText = lastUpdate
+        ? `Last update: ${lastUpdate.toLocaleTimeString()}`
+        : 'No updates yet';
+      return `Polling active (${pollCount} checks) - ${lastUpdateText}`;
+    } else if (error) {
+      return `Polling error: ${error}`;
+    } else {
+      return 'Polling stopped';
+    }
+  };
+
+  return (
+    <Tooltip title={getPollingTooltip()} arrow>
+      <IconButton 
+        size="small"
+        aria-label="Polling status indicator"
+      >
+        {getPollingIcon()}
+      </IconButton>
+    </Tooltip>
+  );
+});
+
+PollingIndicator.displayName = 'PollingIndicator';
+
+const UserProfile = memo<UserProfileProps>(({ 
+  user, 
+  onLogout, 
+  isLoading = false 
+}) => {
+  const handleLogout = async () => {
+    try {
+      await onLogout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  return (
+    <div className={styles.userProfile}>
+      <img
+        src={
+          user?.picture_url
+            ? user.picture_url
+            : "/assets/default-avatar.jpg"
+        }
+        alt={user?.name || 'User'}
+        className={styles.profilePic}
+      />
+      <div className={styles.profileInfo}>
+        <Typography variant="h5" fontWeight={700}>
+          {user?.name || 'User'}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {user?.email}
+        </Typography>
+      </div>
+      <div className={styles.actions}>
+        <Button
+          variant="outlined"
+          color="primary"
+          onClick={handleLogout}
+          disabled={isLoading}
+          aria-label="Log out of the application"
+        >
+          Log out
+        </Button>
+      </div>
+    </div>
+  );
+});
+
+UserProfile.displayName = 'UserProfile';
+
+export default UserProfile;
+export { PollingIndicator };

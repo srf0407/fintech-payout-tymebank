@@ -1,10 +1,13 @@
+import type { CurrencyOption, StatusColor, PayoutStatus } from '../types';
+
 // Supported payout currencies for the payout form and related UI
-export const payoutCurrencies = [
+export const payoutCurrencies: CurrencyOption[] = [
   { code: "USD", label: "US Dollar" },
   { code: "ZAR", label: "South African Rand" },
   { code: "EUR", label: "Euro" },
 ];
-export function statusColor(status: string): "success" | "warning" | "info" | "error" | "default" {
+
+export function statusColor(status: PayoutStatus): StatusColor {
   switch (status) {
 		case "succeeded":
 			return "success";

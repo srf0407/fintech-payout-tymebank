@@ -2,44 +2,15 @@
  * Payout service for communicating with the backend payouts API.
  */
 
-export interface Payout {
-	id: string;
-	amount: string | number; // Backend returns as string, but we can handle both
-	currency: string;
-	status: "pending" | "processing" | "succeeded" | "failed" | "cancelled";
-	created_at: string;
-	updated_at: string;
-	user_id: string;
-	external_id?: string;
-	failure_reason?: string;
-	provider_reference?: string;
-	provider_status?: string;
-	error_code?: string;
-	error_message?: string;
-}
-
-export interface CreatePayoutRequest {
-	amount: number;
-	currency: string;
-	idempotency_key?: string;
-}
-
-export interface CreatePayoutResponse {
-	payout: Payout;
-	message: string;
-}
-
-export interface PayoutsListResponse {
-	items: Payout[];
-	total: number;
-	page: number;
-	page_size: number;
-}
-
-export interface ApiError {
-	detail: string;
-	correlation_id?: string;
-}
+import type { 
+	Payout, 
+	CreatePayoutRequest, 
+	CreatePayoutResponse, 
+	PayoutsListResponse, 
+	ApiError,
+	Currency,
+	ValidationResult
+} from '../../types';
 
 class PayoutService {
 	private baseUrl: string;
@@ -48,9 +19,7 @@ class PayoutService {
 		this.baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
 	}
 
-	/**
-	 * Create a new payout
-	 */
+
 	async createPayout(
 		payoutData: CreatePayoutRequest
 	): Promise<CreatePayoutResponse> {
@@ -79,9 +48,6 @@ class PayoutService {
 		}
 	}
 
-	/**
-	 * Get paginated list of payouts
-	 */
 	async getPayouts(
 		page: number = 1,
 		perPage: number = 10
@@ -109,9 +75,7 @@ class PayoutService {
 		}
 	}
 
-	/**
-	 * Get a specific payout by ID
-	 */
+
 	async getPayout(payoutId: string): Promise<Payout> {
 		try {
 			const response = await fetch(`${this.baseUrl}/payouts/${payoutId}`, {
@@ -133,16 +97,13 @@ class PayoutService {
 		}
 	}
 
-	/**
-	 * Generate idempotency key for payout creation
-	 */
 	generateIdempotencyKey(): string {
 		return `payout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 	}
 	validatePayoutData(
 		amount: number,
-		currency: string
-	): { isValid: boolean; error?: string } {
+		currency: Currency
+	): ValidationResult {
 		if (amount <= 0) {
 			return { isValid: false, error: "Amount must be greater than 0" };
 		}

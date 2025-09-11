@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, memo, useCallback } from "react";
 import {
 	Typography,
 	Box,
@@ -13,7 +13,7 @@ import styles from "./LoginPage.module.css";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
 
-const LoginPage: React.FC = () => {
+const LoginPage = memo(() => {
 	const { user, isLoading, error, login, clearError } = useAuth();
 	const navigate = useNavigate();
 
@@ -39,10 +39,10 @@ const LoginPage: React.FC = () => {
 		}
 	}, []);
 
-	const handleGoogleLogin = async () => {
+	const handleGoogleLogin = useCallback(async () => {
 		clearError();
 		await login();
-	};
+	}, [clearError, login]);
 
 	return (
 		<div className={styles.root}>
@@ -84,6 +84,8 @@ const LoginPage: React.FC = () => {
 						}
 						onClick={handleGoogleLogin}
 						disabled={isLoading}
+						aria-label={isLoading ? "Signing in with Google" : "Continue with Google"}
+						aria-describedby="login-description"
 						sx={{
 							width: "100%",
 							height: 48,
@@ -105,6 +107,7 @@ const LoginPage: React.FC = () => {
 						color='text.secondary'
 						textAlign='center'
 						sx={{ mt: 2 }}
+						id="login-description"
 					>
 						By continuing, you agree to our Terms of Service and Privacy Policy.
 					</Typography>
@@ -112,6 +115,8 @@ const LoginPage: React.FC = () => {
 			</Paper>
 		</div>
 	);
-};
+});
+
+LoginPage.displayName = 'LoginPage';
 
 export default LoginPage;
