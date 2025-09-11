@@ -69,44 +69,7 @@ class AuthService {
 		}
 	}
 
-	/**
-	 * Handle OAuth callback and exchange code for tokens
-	 */
-	async handleCallback(
-		code: string,
-		state: string,
-		code_verifier: string
-	): Promise<TokenResponse> {
-		try {
-			const response = await fetch(`${this.baseUrl}/auth/callback`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					code,
-					state,
-					code_verifier,
-					redirect_uri: `${this.baseUrl}/auth/callback`,
-				}),
-			});
-
-			if (!response.ok) {
-				const errorData: AuthError = await response.json();
-				throw new Error(errorData.error_description || "OAuth callback failed");
-			}
-
-			const tokenData: TokenResponse = await response.json();
-			// Store user data (token is in cookie)
-			sessionStorage.setItem(this.userKey, JSON.stringify(tokenData.user));
-
-			return tokenData;
-		} catch (error) {
-			console.error("OAuth callback failed:", error);
-			throw error;
-		}
-	}
-
+	
 	/**
 	 * Get current user information
 	 */
