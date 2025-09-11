@@ -6,19 +6,19 @@ export const payoutCurrencies = [
 ];
 export function statusColor(status: string): "success" | "warning" | "info" | "error" | "default" {
   switch (status) {
-    case "completed":
-      return "success";
-    case "pending":
-      return "warning";
-    case "processing":
-      return "info";
-    case "failed":
-      return "error";
-    case "cancelled":
-      return "default";
-    default:
-      return "default";
-  }
+		case "succeeded":
+			return "success";
+		case "pending":
+			return "warning";
+		case "processing":
+			return "info";
+		case "failed":
+			return "error";
+		case "cancelled":
+			return "default";
+		default:
+			return "default";
+	}
 }
 
 export function formatDate(dateString: string): string {
