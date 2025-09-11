@@ -11,7 +11,7 @@ import type {
 	Currency,
 	ValidationResult
 } from '../../types';
-import { createHeadersWithCorrelationId, logCorrelationId } from '../../utils/correlationService';
+import { createHeadersWithCorrelationId } from '../../utils/correlationService';
 
 export type { Payout };
 
@@ -34,7 +34,6 @@ class PayoutService {
 			});
 
 			const correlationId = headers["X-Correlation-ID"];
-			logCorrelationId(correlationId, "Creating payout");
 
 			const response = await fetch(`${this.baseUrl}/payouts`, {
 				method: "POST",
@@ -45,11 +44,9 @@ class PayoutService {
 
 			if (!response.ok) {
 				const errorData: ApiError = await response.json();
-				logCorrelationId(correlationId, `Create payout failed: ${errorData.detail || "Unknown error"}`);
 				throw new Error(errorData.detail || "Failed to create payout");
 			}
 
-			logCorrelationId(correlationId, "Payout created successfully");
 			return await response.json();
 		} catch (error) {
 			console.error("Create payout failed:", error);
@@ -64,7 +61,6 @@ class PayoutService {
 		try {
 			const headers = createHeadersWithCorrelationId();
 			const correlationId = headers["X-Correlation-ID"];
-			logCorrelationId(correlationId, `Fetching payouts page ${page}`);
 
 			const response = await fetch(
 				`${this.baseUrl}/payouts?page=${page}&per_page=${perPage}`,
@@ -76,11 +72,9 @@ class PayoutService {
 
 			if (!response.ok) {
 				const errorData: ApiError = await response.json();
-				logCorrelationId(correlationId, `Get payouts failed: ${errorData.detail || "Unknown error"}`);
 				throw new Error(errorData.detail || "Failed to fetch payouts");
 			}
 
-			logCorrelationId(correlationId, "Payouts fetched successfully");
 			return await response.json();
 		} catch (error) {
 			console.error("Get payouts failed:", error);
@@ -93,7 +87,6 @@ class PayoutService {
 		try {
 			const headers = createHeadersWithCorrelationId();
 			const correlationId = headers["X-Correlation-ID"];
-			logCorrelationId(correlationId, `Fetching payout ${payoutId}`);
 
 			const response = await fetch(`${this.baseUrl}/payouts/${payoutId}`, {
 				credentials: "include", // Include cookies
@@ -102,11 +95,9 @@ class PayoutService {
 
 			if (!response.ok) {
 				const errorData: ApiError = await response.json();
-				logCorrelationId(correlationId, `Get payout failed: ${errorData.detail || "Unknown error"}`);
 				throw new Error(errorData.detail || "Failed to fetch payout");
 			}
 
-			logCorrelationId(correlationId, "Payout fetched successfully");
 			return await response.json();
 		} catch (error) {
 			console.error("Get payout failed:", error);

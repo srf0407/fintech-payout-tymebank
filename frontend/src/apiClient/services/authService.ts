@@ -4,7 +4,7 @@
  */
 
 import type { UserProfile } from '../../types';
-import { createHeadersWithCorrelationId, logCorrelationId } from '../../utils/correlationService';
+import { createHeadersWithCorrelationId } from '../../utils/correlationService';
 
 export type { UserProfile };
 
@@ -43,7 +43,6 @@ class AuthService {
 		try {
 			const headers = createHeadersWithCorrelationId();
 			const correlationId = headers["X-Correlation-ID"];
-			logCorrelationId(correlationId, "Initiating OAuth login");
 
 			const response = await fetch(`${this.baseUrl}/auth/login`, {
 				method: "POST",
@@ -55,13 +54,11 @@ class AuthService {
 
 			if (!response.ok) {
 				const errorData: AuthError = await response.json();
-				logCorrelationId(correlationId, `Login initiation failed: ${errorData.error_description || "Unknown error"}`);
 				throw new Error(
 					errorData.error_description || "Failed to initiate login"
 				);
 			}
 
-			logCorrelationId(correlationId, "OAuth login initiated successfully");
 			return await response.json();
 		} catch (error) {
 			console.error("Login initiation failed:", error);
@@ -77,7 +74,6 @@ class AuthService {
 		try {
 			const headers = createHeadersWithCorrelationId();
 			const correlationId = headers["X-Correlation-ID"];
-			logCorrelationId(correlationId, "Getting current user");
 
 			const response = await fetch(`${this.baseUrl}/auth/me`, {
 				credentials: "include", // Include cookies
@@ -87,12 +83,10 @@ class AuthService {
 			if (!response.ok) {
 				if (response.status === 401) {
 					// Token expired, try to refresh
-					logCorrelationId(correlationId, "Token expired, attempting refresh");
 					await this.refreshToken();
 					return this.getCurrentUser();
 				}
 				const errorData: AuthError = await response.json();
-				logCorrelationId(correlationId, `Get current user failed: ${errorData.error_description || "Unknown error"}`);
 				throw new Error(
 					errorData.error_description || "Failed to get user info"
 				);
@@ -103,7 +97,6 @@ class AuthService {
 			// Update stored user data
 			sessionStorage.setItem(this.userKey, JSON.stringify(userData));
 
-			logCorrelationId(correlationId, "Current user retrieved successfully");
 			return userData;
 		} catch (error) {
 			console.error("Get current user failed:", error);
@@ -118,7 +111,6 @@ class AuthService {
 		try {
 			const headers = createHeadersWithCorrelationId();
 			const correlationId = headers["X-Correlation-ID"];
-			logCorrelationId(correlationId, "Refreshing access token");
 
 			const response = await fetch(`${this.baseUrl}/auth/refresh`, {
 				method: "POST",
@@ -128,7 +120,6 @@ class AuthService {
 
 			if (!response.ok) {
 				const errorData: AuthError = await response.json();
-				logCorrelationId(correlationId, `Token refresh failed: ${errorData.error_description || "Unknown error"}`);
 				throw new Error(errorData.error_description || "Token refresh failed");
 			}
 
@@ -136,7 +127,6 @@ class AuthService {
 			// Store user data (token is in cookie)
 			sessionStorage.setItem(this.userKey, JSON.stringify(tokenData.user));
 
-			logCorrelationId(correlationId, "Token refreshed successfully");
 			return tokenData;
 		} catch (error) {
 			console.error("Token refresh failed:", error);
@@ -153,7 +143,6 @@ class AuthService {
 		try {
 			const headers = createHeadersWithCorrelationId();
 			const correlationId = headers["X-Correlation-ID"];
-			logCorrelationId(correlationId, "Logging out user");
 
 			await fetch(`${this.baseUrl}/auth/logout`, {
 				method: "POST",
@@ -164,7 +153,6 @@ class AuthService {
 				}),
 			});
 
-			logCorrelationId(correlationId, "User logged out successfully");
 		} catch (error) {
 			console.error("Logout request failed:", error);
 		} finally {
