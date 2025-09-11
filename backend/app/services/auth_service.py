@@ -22,6 +22,8 @@ from ..core.security import (
     generate_code_challenge,
     generate_correlation_id
 )
+
+OAUTH_SCOPES = ["openid", "email", "profile"]
 from ..core.oauth_store import oauth_store
 from ..core.config import settings
 from ..core.logging import get_logger
@@ -49,7 +51,6 @@ class AuthService:
             code_verifier = generate_code_verifier()
             code_challenge = generate_code_challenge(code_verifier)
             
-            # Store OAuth session data
             session_data = {
                 "state": state,
                 "nonce": nonce,
@@ -121,7 +122,6 @@ class AuthService:
                     detail="Invalid or expired state parameter"
                 )
             
-            # Validate state parameter
             if not validate_oauth_state(state):
                 logger.warning("Invalid OAuth state", extra={
                     "correlation_id": correlation_id,
@@ -147,13 +147,13 @@ class AuthService:
                     detail="Redirect URI mismatch"
                 )
             
-            token_data = await exchange_oauth_code_for_token(code, stored_code_verifier, redirect_uri)
+            code_verifier_to_use = stored_code_verifier if stored_code_verifier else code_verifier
+            token_data = await exchange_oauth_code_for_token(code, code_verifier_to_use, redirect_uri)
             
             user_info = await get_google_user_info(token_data["access_token"])
             google_user = GoogleUserInfo(**user_info)
             
             if "id_token" in token_data:
-                #
                 logger.info("ID token received", extra={
                     "correlation_id": correlation_id,
                     "stored_nonce": stored_nonce[:8] + "..."
@@ -344,6 +344,3 @@ class AuthService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Logout failed"
             )
-
-
-OAUTH_SCOPES = ["openid", "email", "profile"]

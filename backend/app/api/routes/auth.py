@@ -5,7 +5,7 @@ Authentication routes for OAuth 2.0 flows.
 from typing import Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 
 from ..deps import AuthServiceDep, CorrelationID, get_current_user
 from ...schemas.auth import (
@@ -20,6 +20,7 @@ from ...schemas.auth import (
 )
 from ...core.logging import get_logger
 from ...core.security import sanitize_log_data
+from ...core.config import settings
 
 logger = get_logger(__name__)
 
@@ -146,7 +147,7 @@ async def oauth_callback(
                 "error_description": request.query_params.get("error_description")
             })
             return RedirectResponse(
-                url=f"http://localhost:5173/auth/callback?error={error}&correlation_id={correlation_id}"
+                url=f"{settings.frontend_url}/auth/callback?error={error}&correlation_id={correlation_id}"
             )
         
         if not code or not state:
@@ -156,7 +157,7 @@ async def oauth_callback(
                 "has_state": bool(state)
             })
             return RedirectResponse(
-                url=f"http://localhost:5173/auth/callback?error=missing_parameters&correlation_id={correlation_id}"
+                url=f"{settings.frontend_url}/auth/callback?error=missing_parameters&correlation_id={correlation_id}"
             )
         
         redirect_uri = f"{request.base_url}auth/callback"
@@ -170,13 +171,30 @@ async def oauth_callback(
         token_response = await auth_service.handle_oauth_callback(
             code=code,
             state=state,
-            code_verifier="",  #
+            code_verifier="",
             redirect_uri=redirect_uri
         )
         
-        return RedirectResponse(
-            url=f"http://localhost:5173/auth/callback?success=true&token={token_response.access_token}&correlation_id={correlation_id}"
+        response = RedirectResponse(
+            url=f"{settings.frontend_url}/dashboard"
         )
+        
+        response.set_cookie(
+            key="access_token",
+            value=token_response.access_token,
+            httponly=True,           
+            secure=not settings.debug,  
+            samesite="strict", 
+            max_age=settings.access_token_expire_minutes * 60,
+            path="/"
+        )
+        
+        logger.info("OAuth callback successful, cookie set", extra={
+            "correlation_id": correlation_id,
+            "user_id": token_response.user.id
+        })
+        
+        return response
         
     except HTTPException as e:
         logger.error("OAuth callback failed", extra={
@@ -185,7 +203,7 @@ async def oauth_callback(
             "detail": e.detail
         })
         return RedirectResponse(
-            url=f"http://localhost:5173/auth/callback?error=oauth_failed&correlation_id={correlation_id}"
+            url=f"{settings.frontend_url}/auth/callback?error=oauth_failed&correlation_id={correlation_id}"
         )
     except Exception as e:
         logger.error("Unexpected error in OAuth callback", extra={
@@ -193,7 +211,7 @@ async def oauth_callback(
             "error": str(e)
         })
         return RedirectResponse(
-            url=f"http://localhost:5173/auth/callback?error=server_error&correlation_id={correlation_id}"
+            url=f"{settings.frontend_url}/auth/callback?error=server_error&correlation_id={correlation_id}"
         )
 
 
@@ -224,7 +242,7 @@ async def google_callback(
                 "error_description": request.query_params.get("error_description")
             })
             return RedirectResponse(
-                url=f"http://localhost:5173/auth/callback?error={error}&correlation_id={correlation_id}"
+                url=f"{settings.frontend_url}/auth/callback?error={error}&correlation_id={correlation_id}"
             )
         
         if not code or not state:
@@ -234,7 +252,7 @@ async def google_callback(
                 "has_state": bool(state)
             })
             return RedirectResponse(
-                url=f"http://localhost:5173/auth/callback?error=missing_parameters&correlation_id={correlation_id}"
+                url=f"{settings.frontend_url}/auth/callback?error=missing_parameters&correlation_id={correlation_id}"
             )
         
         redirect_uri = f"{request.base_url}auth/callback/google"
@@ -245,17 +263,33 @@ async def google_callback(
             "state": state[:8] + "..."
         })
         
-        # The code_verifier will be retrieved from stored session data
         token_response = await auth_service.handle_oauth_callback(
             code=code,
             state=state,
-            code_verifier="",  # Will be ignored, using stored value
+            code_verifier="",  
             redirect_uri=redirect_uri
         )
         
-        return RedirectResponse(
-            url=f"http://localhost:5173/auth/callback?success=true&token={token_response.access_token}&correlation_id={correlation_id}"
+        response = RedirectResponse(
+            url=f"{settings.frontend_url}/dashboard"
         )
+        
+        response.set_cookie(
+            key="access_token",
+            value=token_response.access_token,
+            httponly=True,           
+            secure=not settings.debug,  
+            samesite="strict",
+            max_age=settings.access_token_expire_minutes * 60,
+            path="/"
+        )
+        
+        logger.info("Google OAuth callback successful, cookie set", extra={
+            "correlation_id": correlation_id,
+            "user_id": token_response.user.id
+        })
+        
+        return response
         
     except HTTPException as e:
         logger.error("Google OAuth callback failed", extra={
@@ -264,7 +298,7 @@ async def google_callback(
             "detail": e.detail
         })
         return RedirectResponse(
-            url=f"http://localhost:5173/auth/callback?error=oauth_failed&correlation_id={correlation_id}"
+            url=f"{settings.frontend_url}/auth/callback?error=oauth_failed&correlation_id={correlation_id}"
         )
     except Exception as e:
         logger.error("Unexpected error in Google OAuth callback", extra={
@@ -272,12 +306,13 @@ async def google_callback(
             "error": str(e)
         })
         return RedirectResponse(
-            url=f"http://localhost:5173/auth/callback?error=server_error&correlation_id={correlation_id}"
+            url=f"{settings.frontend_url}/auth/callback?error=server_error&correlation_id={correlation_id}"
         )
 
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
+    request: Request,
     correlation_id: CorrelationID,
     auth_service: AuthServiceDep,
     current_user = Depends(get_current_user)
@@ -286,8 +321,9 @@ async def refresh_token(
     Refresh user's access token.
     
     This endpoint:
-    - Validates current JWT token
+    - Validates current JWT token from cookie
     - Generates new access token with updated expiration
+    - Sets new token in HTTP-only cookie
     - Returns new token and user information
     """
     try:
@@ -298,12 +334,24 @@ async def refresh_token(
         
         token_response = await auth_service.refresh_user_token(current_user)
         
+        response = JSONResponse(content=token_response.model_dump())
+        
+        response.set_cookie(
+            key="access_token",
+            value=token_response.access_token,
+            httponly=True,         
+            secure=not settings.debug,  
+            samesite="strict",     
+            max_age=settings.access_token_expire_minutes * 60,
+            path="/"
+        )
+        
         logger.info("Token refreshed successfully", extra={
             "correlation_id": correlation_id,
             "user_id": str(current_user.id)
         })
         
-        return token_response
+        return response
         
     except HTTPException:
         raise
@@ -321,6 +369,7 @@ async def refresh_token(
 
 @router.post("/logout", response_model=LogoutResponse)
 async def logout(
+    request: Request,
     request_data: LogoutRequest,
     correlation_id: CorrelationID,
     auth_service: AuthServiceDep,
@@ -332,6 +381,7 @@ async def logout(
     This endpoint:
     - Validates current user authentication
     - Performs logout operations
+    - Clears HTTP-only cookie
     - Returns confirmation message
     """
     try:
@@ -342,15 +392,23 @@ async def logout(
         
         logout_data = await auth_service.logout_user(current_user)
         
+        response = JSONResponse(content=LogoutResponse(
+            message=logout_data["message"],
+            correlation_id=correlation_id
+        ).model_dump())
+        
+        response.delete_cookie(
+            key="access_token",
+            path="/",
+            samesite="strict"
+        )
+        
         logger.info("User logged out successfully", extra={
             "correlation_id": correlation_id,
             "user_id": str(current_user.id)
         })
         
-        return LogoutResponse(
-            message=logout_data["message"],
-            correlation_id=correlation_id
-        )
+        return response
         
     except HTTPException:
         raise

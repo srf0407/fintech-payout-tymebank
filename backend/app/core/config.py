@@ -24,7 +24,8 @@ class Settings(BaseSettings):
     payment_provider_base_url: str = "http://localhost:8000/mock-provider"
     payment_provider_timeout: int = 30
 
-    cors_allow_origins: list[str] = ["http://localhost:3000"]
+    cors_allow_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    frontend_url: str = "http://localhost:5173"
     @field_validator("secret_key")
     @classmethod
     def validate_secret_key(cls, v: str) -> str:
