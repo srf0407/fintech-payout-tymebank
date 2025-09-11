@@ -7,11 +7,22 @@ from .core.config import settings
 from .core.logging import configure_logging, logger, set_correlation_id, get_correlation_id
 from .db.session import engine, Base
 from .api.routes import auth, payouts, webhooks
+from .services.webhook_callback_service import webhook_callback_service
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup
     configure_logging()
+    logger.info("Starting Fintech Payouts API")
+    
+    # Register webhook callback with mock payment provider
+    webhook_callback_service.register_webhook_callback()
+    logger.info("Webhook callback registered with mock payment provider")
+    
     yield
+    
+    # Shutdown
+    logger.info("Shutting down Fintech Payouts API")
 
 app = FastAPI(
     title=settings.app_name,
@@ -93,3 +104,12 @@ async def root():
     """Root endpoint"""
     logger.info("root_endpoint_accessed")
     return {"message": "Fintech Payouts API", "version": "1.0.0"}
+
+@app.get("/webhook-status")
+async def webhook_status():
+    """Check webhook callback registration status"""
+    return {
+        "webhook_callback_registered": webhook_callback_service.is_registered,
+        "webhook_url": webhook_callback_service.webhook_url,
+        "status": "ready" if webhook_callback_service.is_registered else "not_ready"
+    }

@@ -19,6 +19,7 @@ class WebhookEventType(str, Enum):
     PAYMENT_FAILED = "payment.failed"
     PAYMENT_CANCELLED = "payment.cancelled"
     PAYMENT_REFUNDED = "payment.refunded"
+    PAYMENT_STATUS_CHANGED = "payment.status_changed"
 
 
 class WebhookSignatureType(str, Enum):

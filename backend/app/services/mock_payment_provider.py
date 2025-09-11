@@ -172,7 +172,7 @@ class MockPaymentProvider:
         webhook_delay = random.uniform(2.0, 10.0)
         asyncio.create_task(
             self._send_webhook_callback(
-                payout_id, provider_reference, "succeeded", webhook_delay, correlation_id
+                payout_id, provider_reference, "succeeded", webhook_delay, correlation_id, reference
             )
         )
         
@@ -241,7 +241,8 @@ class MockPaymentProvider:
         provider_reference: str,
         status: str,
         delay_seconds: float,
-        correlation_id: str
+        correlation_id: str,
+        reference: str
     ):
         """Send webhook callback after delay."""
         logger.info("Mock provider: Scheduling webhook callback", extra={
@@ -255,7 +256,7 @@ class MockPaymentProvider:
         await asyncio.sleep(delay_seconds)
         
         webhook_data = {
-            "id": payout_id,
+            "id": reference,  # Use payout reference, not payout ID
             "provider_reference": provider_reference,
             "status": status,
             "timestamp": datetime.utcnow().isoformat(),
@@ -270,9 +271,25 @@ class MockPaymentProvider:
             "webhook_data": webhook_data
         })
         
+        logger.info("Mock provider: Calling webhook callbacks", extra={
+            "correlation_id": correlation_id,
+            "payout_id": payout_id,
+            "callback_count": len(self._webhook_callbacks)
+        })
+        
         for callback in self._webhook_callbacks:
             try:
+                logger.info("Mock provider: Executing webhook callback", extra={
+                    "correlation_id": correlation_id,
+                    "payout_id": payout_id,
+                    "callback": callback.__name__
+                })
                 await callback(webhook_data)
+                logger.info("Mock provider: Webhook callback completed", extra={
+                    "correlation_id": correlation_id,
+                    "payout_id": payout_id,
+                    "callback": callback.__name__
+                })
             except Exception as e:
                 logger.error("Mock provider: Webhook callback failed", extra={
                     "correlation_id": correlation_id,
