@@ -1,0 +1,1043 @@
+openapi: 3.1.0
+info:
+  title: Fintech Payouts API
+  version: 1.0.0
+  description: |
+    A secure, observable, and reliable RESTful API for processing financial payouts 
+    with comprehensive authentication, webhook handling, and real-time status updates.
+    
+    ## Features
+    - OAuth 2.0 authentication with Google (state, nonce, PKCE)
+    - JWT Bearer token authentication
+    - Idempotent payout creation with rate limiting
+    - Webhook processing with HMAC/JWT signature verification
+    - Real-time status updates and polling
+    - Comprehensive error handling and observability
+    
+    ## Security
+    - HMAC SHA256/SHA1 signature verification for webhooks
+    - JWT signature verification
+    - Timestamp validation (replay attack protection)
+    - Rate limiting and idempotency enforcement
+    - Structured logging with correlation IDs
+  contact:
+    name: API Support
+    url: http://localhost:8000/docs
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:8000
+    description: Development server
+  - url: https://api.fintech-payouts.com
+    description: Production server
+
+security:
+  - JWT: []
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Initiate OAuth 2.0 Login
+      description: |
+        Initiate OAuth 2.0 login flow with secure state and PKCE.
+        
+        This endpoint:
+        - Generates cryptographically secure state parameter
+        - Creates PKCE code verifier and challenge
+        - Returns Google OAuth authorization URL
+        - Stores security parameters for callback verification
+      operationId: initiateLogin
+      security: []
+      parameters:
+        - name: X-Correlation-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: Request correlation ID for tracing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthLoginRequest'
+            example:
+              redirect_uri: "http://localhost:5173/auth/callback"
+      responses:
+        '200':
+          description: Successful OAuth initiation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthLoginResponse'
+              example:
+                authorization_url: "https://accounts.google.com/oauth/authorize?..."
+                state: "secure-state-param-123"
+                code_verifier: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+                expires_at: "2024-01-01T00:05:00Z"
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+
+  /auth/callback:
+    get:
+      tags:
+        - Authentication
+      summary: OAuth Callback Handler
+      description: |
+        Handle OAuth callback via GET request (for browser redirects).
+        
+        This endpoint:
+        - Extracts authorization code and state from query parameters
+        - Validates state parameter
+        - Exchanges code for tokens
+        - Redirects to frontend with token or error
+      operationId: oauthCallback
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Authorization code from OAuth provider
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+          description: State parameter for CSRF protection
+        - name: X-Correlation-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: Request correlation ID for tracing
+      responses:
+        '200':
+          description: Successful callback processing
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Redirects to frontend with authentication result
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh Access Token
+      description: |
+        Refresh user's access token.
+        
+        This endpoint:
+        - Validates current JWT token from cookie
+        - Generates new access token with updated expiration
+        - Sets new token in HTTP-only cookie
+        - Returns new token and user information
+      operationId: refreshToken
+      parameters:
+        - name: X-Correlation-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: Request correlation ID for tracing
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              example:
+                access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                token_type: "bearer"
+                expires_in: 1800
+                user:
+                  id: "123e4567-e89b-12d3-a456-426614174000"
+                  google_id: "123456789"
+                  email: "user@example.com"
+                  name: "John Doe"
+                  picture_url: "https://lh3.googleusercontent.com/..."
+                  created_at: "2024-01-01T00:00:00Z"
+        '401':
+          description: Unauthorized - Invalid or expired token
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout User
+      description: |
+        Logout user and invalidate session.
+        
+        This endpoint:
+        - Validates current user authentication
+        - Performs logout operations
+        - Clears HTTP-only cookie
+        - Returns confirmation message
+      operationId: logoutUser
+      parameters:
+        - name: X-Correlation-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: Request correlation ID for tracing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+            example:
+              correlation_id: "req-123"
+      responses:
+        '200':
+          description: Successfully logged out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+              example:
+                message: "Successfully logged out"
+                correlation_id: "req-123"
+        '401':
+          description: Unauthorized - Invalid or expired token
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+
+  /auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get Current User Information
+      description: |
+        Get current user information.
+        
+        This endpoint:
+        - Validates JWT token
+        - Returns current user's profile information
+      operationId: getCurrentUser
+      parameters:
+        - name: X-Correlation-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: Request correlation ID for tracing
+      responses:
+        '200':
+          description: User information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              example:
+                id: "123e4567-e89b-12d3-a456-426614174000"
+                google_id: "123456789"
+                email: "user@example.com"
+                name: "John Doe"
+                picture_url: "https://lh3.googleusercontent.com/..."
+                created_at: "2024-01-01T00:00:00Z"
+        '401':
+          description: Unauthorized - Invalid or expired token
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+
+  /payouts/:
+    post:
+      tags:
+        - Payouts
+      summary: Create Payout
+      description: |
+        Create a new payout with idempotency, rate limiting, and retry logic.
+        
+        Features:
+        - Enforces idempotency using Idempotency-Key header
+        - Rate limiting per user (10 requests per minute)
+        - Automatic retry logic with exponential backoff
+        - Integration with mock payment provider
+        - Real-time status updates via webhooks
+      operationId: createPayout
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Unique key for idempotent requests
+        - name: X-Correlation-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: Request correlation ID for tracing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayoutCreate'
+            example:
+              amount: 100.50
+              currency: "USD"
+              reference: "PAY-001"
+              metadata_json:
+                description: "Payment for services"
+                category: "business"
+      responses:
+        '201':
+          description: Payout created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayoutRead'
+              example:
+                id: "123e4567-e89b-12d3-a456-426614174000"
+                reference: "PAY-001"
+                user_id: "123e4567-e89b-12d3-a456-426614174000"
+                amount: "100.50"
+                currency: "USD"
+                status: "pending"
+                provider_reference: null
+                provider_status: null
+                idempotency_key: "unique-key-123"
+                error_code: null
+                error_message: null
+                metadata_json:
+                  description: "Payment for services"
+                  category: "business"
+                retry_count: 0
+                last_attempt_at: null
+                webhook_received_at: null
+                created_at: "2024-01-01T00:00:00Z"
+                updated_at: "2024-01-01T00:00:00Z"
+                correlation_id: "req-123"
+        '401':
+          description: Unauthorized - Invalid or expired token
+        '409':
+          description: Conflict - Duplicate idempotency key
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '429':
+          description: Too Many Requests - Rate limit exceeded
+
+    get:
+      tags:
+        - Payouts
+      summary: List Payouts
+      description: |
+        Get paginated list of payouts for the authenticated user.
+        
+        Features:
+        - Paginated results (default 20 per page, max 100)
+        - Filtered by authenticated user
+        - Ordered by creation date (newest first)
+      operationId: listPayouts
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number (1-based)
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of items per page
+        - name: X-Correlation-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: Request correlation ID for tracing
+      responses:
+        '200':
+          description: Payouts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayoutList'
+              example:
+                items:
+                  - id: "123e4567-e89b-12d3-a456-426614174000"
+                    reference: "PAY-001"
+                    user_id: "123e4567-e89b-12d3-a456-426614174000"
+                    amount: "100.50"
+                    currency: "USD"
+                    status: "succeeded"
+                    provider_reference: "PROV-123"
+                    provider_status: "completed"
+                    idempotency_key: "unique-key-123"
+                    error_code: null
+                    error_message: null
+                    metadata_json:
+                      description: "Payment for services"
+                    retry_count: 0
+                    last_attempt_at: "2024-01-01T00:00:00Z"
+                    webhook_received_at: "2024-01-01T00:00:00Z"
+                    created_at: "2024-01-01T00:00:00Z"
+                    updated_at: "2024-01-01T00:00:00Z"
+                    correlation_id: "req-123"
+                page: 1
+                page_size: 20
+                total: 1
+        '401':
+          description: Unauthorized - Invalid or expired token
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+
+  /webhooks/payments:
+    post:
+      tags:
+        - Webhooks
+      summary: Receive Payment Webhook
+      description: |
+        Receive and process payment webhook notifications.
+        
+        This endpoint:
+        - Verifies webhook signature (HMAC or JWT)
+        - Validates webhook timestamp to prevent replay attacks
+        - Processes webhook event
+        - Returns acknowledgment response
+        
+        Security features:
+        - HMAC SHA256/SHA1 signature verification
+        - JWT signature verification
+        - Timestamp validation (replay attack protection)
+        - Idempotency handling
+        - Structured logging with correlation IDs
+      operationId: receivePaymentWebhook
+      security: []
+      parameters:
+        - name: X-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Webhook signature for verification
+        - name: X-Signature-Type
+          in: header
+          required: false
+          schema:
+            type: string
+            default: hmac_sha256
+            enum: [hmac_sha256, hmac_sha1, jwt]
+          description: Signature type for verification
+        - name: X-Timestamp
+          in: header
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: Webhook timestamp for replay attack prevention
+        - name: X-Correlation-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: Request correlation ID for tracing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookRequest'
+            example:
+              event_type: "payment.succeeded"
+              event_id: "evt_123456789"
+              timestamp: "2024-01-01T00:00:00Z"
+              payment_id: "pay_123456789"
+              reference: "PAY-001"
+              status: "succeeded"
+              amount: 100.50
+              currency: "USD"
+              error_code: null
+              error_message: null
+              metadata:
+                provider: "mock_provider"
+                processing_time: "2.5s"
+      responses:
+        '200':
+          description: Webhook processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+              example:
+                success: true
+                message: "Webhook processed successfully"
+                correlation_id: "req-123"
+                processed_at: "2024-01-01T00:00:00Z"
+        '400':
+          description: Bad Request - Invalid signature or timestamp
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health Check
+      description: |
+        Health check endpoint for monitoring and load balancer health checks.
+        
+        Returns:
+        - Application status
+        - Timestamp
+        - Version information
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-01T00:00:00Z"
+                  version:
+                    type: string
+                    example: "1.0.0"
+                required: [status, timestamp, version]
+
+components:
+  securitySchemes:
+    JWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token for authentication
+
+  schemas:
+    OAuthLoginRequest:
+      type: object
+      required:
+        - redirect_uri
+      properties:
+        redirect_uri:
+          type: string
+          format: uri
+          description: OAuth redirect URI
+          example: "http://localhost:5173/auth/callback"
+      title: OAuth Login Request
+      description: Request to initiate OAuth login flow
+
+    OAuthLoginResponse:
+      type: object
+      required:
+        - authorization_url
+        - state
+        - code_verifier
+        - expires_at
+      properties:
+        authorization_url:
+          type: string
+          format: uri
+          description: OAuth authorization URL
+          example: "https://accounts.google.com/oauth/authorize?..."
+        state:
+          type: string
+          description: CSRF protection state parameter
+          example: "secure-state-param-123"
+        code_verifier:
+          type: string
+          description: PKCE code verifier (store securely)
+          example: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+        expires_at:
+          type: string
+          format: date-time
+          description: When the state expires
+          example: "2024-01-01T00:05:00Z"
+      title: OAuth Login Response
+      description: Response containing OAuth authorization URL and state
+
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - expires_in
+        - user
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_type:
+          type: string
+          description: Token type
+          default: bearer
+          example: "bearer"
+        expires_in:
+          type: integer
+          description: Token expiration in seconds
+          example: 1800
+        user:
+          allOf:
+            - $ref: '#/components/schemas/UserResponse'
+          description: User information
+      title: Token Response
+      description: Response containing access token and user information
+
+    UserResponse:
+      type: object
+      required:
+        - id
+        - google_id
+        - email
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: User ID
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        google_id:
+          type: string
+          description: Google user ID
+          example: "123456789"
+        email:
+          type: string
+          format: email
+          description: User email
+          example: "user@example.com"
+        name:
+          type: string
+          nullable: true
+          description: User name
+          example: "John Doe"
+        picture_url:
+          type: string
+          format: uri
+          nullable: true
+          description: User picture URL
+          example: "https://lh3.googleusercontent.com/..."
+        created_at:
+          type: string
+          format: date-time
+          description: User creation timestamp
+          example: "2024-01-01T00:00:00Z"
+      title: User Response
+      description: User information response
+
+    LogoutRequest:
+      type: object
+      properties:
+        correlation_id:
+          type: string
+          nullable: true
+          description: Request correlation ID
+          example: "req-123"
+      title: Logout Request
+      description: Request to logout user
+
+    LogoutResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Logout confirmation message
+          example: "Successfully logged out"
+        correlation_id:
+          type: string
+          nullable: true
+          description: Request correlation ID
+          example: "req-123"
+      title: Logout Response
+      description: Response after successful logout
+
+    PayoutCreate:
+      type: object
+      required:
+        - amount
+        - currency
+      properties:
+        amount:
+          oneOf:
+            - type: number
+              exclusiveMinimum: 0
+            - type: string
+          description: Payout amount
+          example: 100.50
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          pattern: '^[A-Z]{3}$'
+          description: Currency code (ISO 4217)
+          example: "USD"
+        reference:
+          type: string
+          minLength: 1
+          nullable: true
+          description: Payment reference
+          example: "PAY-001"
+        metadata_json:
+          type: object
+          nullable: true
+          description: Additional metadata
+          example:
+            description: "Payment for services"
+            category: "business"
+      title: Payout Create
+      description: Request to create a new payout
+
+    PayoutRead:
+      type: object
+      required:
+        - id
+        - reference
+        - amount
+        - currency
+        - status
+        - idempotency_key
+        - retry_count
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Payout ID
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        reference:
+          type: string
+          description: Payment reference
+          example: "PAY-001"
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: User ID
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        amount:
+          type: string
+          description: Payout amount
+          example: "100.50"
+        currency:
+          type: string
+          description: Currency code
+          example: "USD"
+        status:
+          $ref: '#/components/schemas/PayoutStatus'
+        provider_reference:
+          type: string
+          nullable: true
+          description: Provider reference
+          example: "PROV-123"
+        provider_status:
+          type: string
+          nullable: true
+          description: Provider status
+          example: "completed"
+        idempotency_key:
+          type: string
+          description: Idempotency key
+          example: "unique-key-123"
+        error_code:
+          type: string
+          nullable: true
+          description: Error code if failed
+          example: null
+        error_message:
+          type: string
+          nullable: true
+          description: Error message if failed
+          example: null
+        metadata_json:
+          type: object
+          nullable: true
+          description: Additional metadata
+          example:
+            description: "Payment for services"
+        retry_count:
+          type: integer
+          minimum: 0
+          description: Number of retry attempts
+          example: 0
+        last_attempt_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last attempt timestamp
+          example: "2024-01-01T00:00:00Z"
+        webhook_received_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Webhook received timestamp
+          example: "2024-01-01T00:00:00Z"
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2024-01-01T00:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2024-01-01T00:00:00Z"
+        correlation_id:
+          type: string
+          nullable: true
+          description: Request correlation ID
+          example: "req-123"
+      title: Payout Read
+      description: Payout information
+
+    PayoutStatus:
+      type: string
+      enum:
+        - pending
+        - processing
+        - succeeded
+        - failed
+        - cancelled
+      description: Payout status
+      example: "pending"
+      title: Payout Status
+
+    PayoutList:
+      type: object
+      required:
+        - items
+        - page
+        - page_size
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PayoutRead'
+          description: List of payouts
+        page:
+          type: integer
+          minimum: 1
+          description: Current page number
+          example: 1
+        page_size:
+          type: integer
+          minimum: 1
+          description: Items per page
+          example: 20
+        total:
+          type: integer
+          minimum: 0
+          description: Total number of items
+          example: 1
+      title: Payout List
+      description: Paginated list of payouts
+
+    WebhookRequest:
+      type: object
+      required:
+        - event_type
+        - event_id
+        - timestamp
+        - payment_id
+        - reference
+        - status
+      properties:
+        event_type:
+          $ref: '#/components/schemas/WebhookEventType'
+        event_id:
+          type: string
+          description: Unique event identifier
+          example: "evt_123456789"
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp
+          example: "2024-01-01T00:00:00Z"
+        payment_id:
+          type: string
+          description: Payment provider ID
+          example: "pay_123456789"
+        reference:
+          type: string
+          description: Payment reference
+          example: "PAY-001"
+        status:
+          type: string
+          description: Payment status
+          example: "succeeded"
+        amount:
+          type: number
+          nullable: true
+          description: Payment amount
+          example: 100.50
+        currency:
+          type: string
+          nullable: true
+          description: Payment currency
+          example: "USD"
+        error_code:
+          type: string
+          nullable: true
+          description: Error code if failed
+          example: null
+        error_message:
+          type: string
+          nullable: true
+          description: Error message if failed
+          example: null
+        metadata:
+          type: object
+          nullable: true
+          description: Additional metadata
+          example:
+            provider: "mock_provider"
+            processing_time: "2.5s"
+      title: Webhook Request
+      description: Incoming webhook request
+
+    WebhookEventType:
+      type: string
+      enum:
+        - payment.created
+        - payment.updated
+        - payment.succeeded
+        - payment.failed
+        - payment.cancelled
+        - payment.refunded
+        - payment.status_changed
+      description: Supported webhook event types
+      example: "payment.succeeded"
+      title: Webhook Event Type
+
+    WebhookResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          description: Whether webhook was processed successfully
+          example: true
+        message:
+          type: string
+          description: Response message
+          example: "Webhook processed successfully"
+        correlation_id:
+          type: string
+          nullable: true
+          description: Request correlation ID
+          example: "req-123"
+        processed_at:
+          type: string
+          format: date-time
+          description: Processing timestamp
+          example: "2024-01-01T00:00:00Z"
+      title: Webhook Response
+      description: Webhook response
+
+    HTTPValidationError:
+      type: object
+      properties:
+        detail:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          description: Validation error details
+      title: HTTP Validation Error
+      description: HTTP validation error response
+
+    ValidationError:
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      properties:
+        loc:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: integer
+          description: Error location
+          example: ["body", "amount"]
+        msg:
+          type: string
+          description: Error message
+          example: "Amount must be greater than 0"
+        type:
+          type: string
+          description: Error type
+          example: "value_error"
+      title: Validation Error
+      description: Individual validation error
+
+tags:
+  - name: Authentication
+    description: OAuth 2.0 authentication and user management
+  - name: Payouts
+    description: Payout creation and management
+  - name: Webhooks
+    description: Webhook processing for payment notifications
+  - name: System
+    description: System health and monitoring
