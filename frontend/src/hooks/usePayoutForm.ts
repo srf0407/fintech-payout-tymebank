@@ -69,49 +69,54 @@ export const usePayoutForm = () => {
     return isFormValid && !formState.isSubmitting;
   }, [isFormValid, formState.isSubmitting]);
 
-  const handleSubmit = useCallback(async (onSuccess?: () => void) => {
-    if (!canSubmit) return;
 
-    const validation = validateForm(formState.amount, formState.currency);
-    if (!validation.isValid) {
-      setError(validation.error || 'Invalid payout data');
-      return;
-    }
+  const handleSubmit = useCallback(
+    (onSubmit: (data: CreatePayoutRequest) => Promise<void>) =>
+      async (e?: React.FormEvent) => {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        if (!canSubmit) return;
 
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      const idempotencyKey = payoutService.generateIdempotencyKey();
-      const payoutData: CreatePayoutRequest = {
-        amount: formState.amount,
-        currency: formState.currency,
-        idempotency_key: idempotencyKey,
-      };
-
-      await payoutService.createPayout(payoutData);
-      resetForm();
-      onSuccess?.();
-    } catch (error) {
-      let errorMessage = 'Failed to create payout';
-
-      if (error instanceof Error) {
-        if (error.message.includes('rate_limit') || error.message.includes('429')) {
-          errorMessage = 'Too many requests. Please wait a moment before trying again.';
-        } else if (error.message.includes('validation') || error.message.includes('400')) {
-          errorMessage = 'Please check your input and try again.';
-        } else if (error.message.includes('unauthorized') || error.message.includes('401')) {
-          errorMessage = 'Please log in again to continue.';
-        } else {
-          errorMessage = error.message;
+        const validation = validateForm(formState.amount, formState.currency);
+        if (!validation.isValid) {
+          setError(validation.error || 'Invalid payout data');
+          return;
         }
-      }
 
-      setError(errorMessage);
-    } finally {
-      setSubmitting(false);
-    }
-  }, [formState.amount, formState.currency, canSubmit, validateForm, setSubmitting, setError, resetForm]);
+        setSubmitting(true);
+        setError(null);
+
+        try {
+          const idempotencyKey = payoutService.generateIdempotencyKey();
+          const payoutData: CreatePayoutRequest = {
+            amount: formState.amount,
+            currency: formState.currency,
+            idempotency_key: idempotencyKey,
+          };
+
+          await onSubmit(payoutData);
+          resetForm();
+        } catch (error) {
+          let errorMessage = 'Failed to create payout';
+
+          if (error instanceof Error) {
+            if (error.message.includes('rate_limit') || error.message.includes('429')) {
+              errorMessage = 'Too many requests. Please wait a moment before trying again.';
+            } else if (error.message.includes('validation') || error.message.includes('400')) {
+              errorMessage = 'Please check your input and try again.';
+            } else if (error.message.includes('unauthorized') || error.message.includes('401')) {
+              errorMessage = 'Please log in again to continue.';
+            } else {
+              errorMessage = error.message;
+            }
+          }
+
+          setError(errorMessage);
+        } finally {
+          setSubmitting(false);
+        }
+      },
+    [formState.amount, formState.currency, canSubmit, validateForm, setSubmitting, setError, resetForm]
+  );
 
   return {
     formState,

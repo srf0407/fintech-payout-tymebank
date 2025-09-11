@@ -12,6 +12,8 @@ import type {
 	ValidationResult
 } from '../../types';
 
+export type { Payout };
+
 class PayoutService {
 	private baseUrl: string;
 

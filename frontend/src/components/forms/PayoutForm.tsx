@@ -41,10 +41,7 @@ const PayoutForm = memo<PayoutFormProps>(({
     updateCurrency(e.target.value as any);
   }, [updateCurrency]);
 
-  const handleFormSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    await handleSubmit(onSubmit);
-  }, [handleSubmit, onSubmit]);
+  const handleFormSubmit = handleSubmit(onSubmit);
 
   const handleErrorClose = useCallback(() => {
     setError(null);

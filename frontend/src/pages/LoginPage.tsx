@@ -1,4 +1,4 @@
-import React, { useEffect, memo, useCallback } from "react";
+import { useEffect, memo, useCallback } from "react";
 import {
 	Typography,
 	Box,

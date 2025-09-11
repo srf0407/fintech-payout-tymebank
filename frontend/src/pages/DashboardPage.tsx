@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect } from "react";
+import { memo, useCallback, useEffect } from "react";
 import { Box, CircularProgress, Alert } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -177,7 +177,7 @@ const DashboardPage = memo(() => {
 					onSubmit={handleCreatePayout}
 					isLoading={authLoading}
 					error={hasError ? error?.error : null}
-					onErrorChange={handleError}
+					onErrorChange={error => handleError(error ?? '', 'payout-form')}
 				/>
 
 				{/* Payout List */}

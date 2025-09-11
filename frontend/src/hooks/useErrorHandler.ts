@@ -19,8 +19,8 @@ export interface ErrorHandlerReturn {
  */
 export const useErrorHandler = (): ErrorHandlerReturn => {
   const [error, setError] = useState<ErrorState | null>(null);
-  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
+  const errorTimeoutRef = useRef<number | null>(null);  
+  
   const handleError = useCallback((error: Error | string, correlationId?: string) => {
     // Clear any existing timeout
     if (errorTimeoutRef.current) {
