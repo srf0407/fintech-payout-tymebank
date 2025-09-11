@@ -57,13 +57,20 @@ const DashboardPage = memo(() => {
 	// Handle real-time payout updates from polling
 	useEffect(() => {
 		const unsubscribe = onPayoutUpdate((updatedPayouts) => {
-			if (updatedPayouts && Array.isArray(updatedPayouts)) {
-				updatePayoutsList(updatedPayouts);
+			// Only reload if the new payouts for the current page are different from the current payouts
+			const perPage = 10;
+			const start = (currentPage - 1) * perPage;
+			const end = start + perPage;
+			const currentPageSlice = Array.isArray(updatedPayouts) ? updatedPayouts.slice(start, end) : [];
+			const isDifferent = currentPageSlice.length !== payouts.length ||
+				currentPageSlice.some((p, i) => p.id !== payouts[i]?.id || p.status !== payouts[i]?.status);
+			if (isDifferent) {
+				loadPayouts(currentPage);
 			}
 		});
 
 		return unsubscribe;
-	}, [onPayoutUpdate, updatePayoutsList]);
+	}, [onPayoutUpdate, loadPayouts, currentPage, payouts]);
 
 	// Cleanup polling on unmount
 	useEffect(() => {
@@ -163,14 +170,15 @@ const DashboardPage = memo(() => {
 				/>
 
 				{/* Polling Indicator */}
-				<Box display="flex" justifyContent="flex-end" mb={2}>
+				{/* PollingIndicator will be injected into PayoutList header */}
+				{(() => { (window as any).pollingIndicator = (
 					<PollingIndicator
 						isPolling={isPolling}
 						lastUpdate={lastUpdate}
 						error={pollingError}
 						pollCount={pollCount}
 					/>
-				</Box>
+				); return null; })()}
 
 				{/* Payout Form */}
 				<PayoutForm

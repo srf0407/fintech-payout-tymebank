@@ -1,4 +1,5 @@
 import React, { memo, useCallback, useMemo } from 'react';
+import { PollingIndicator } from '../layout/UserProfile';
 import {
   Typography,
   Box,
@@ -80,10 +81,12 @@ const PayoutList = memo<PayoutListProps>(({
 
   return (
     <div className={styles.payoutList}>
-      <div className={styles.header}>
+      <div className={styles.header} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="h6" fontWeight={600}>
           Recent Payouts
         </Typography>
+        {/* PollingIndicator will be passed as a prop from DashboardPage */}
+        {typeof (window as any).pollingIndicator !== 'undefined' && (window as any).pollingIndicator}
       </div>
 
       {error && (

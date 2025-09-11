@@ -48,10 +48,20 @@ export const usePayoutList = () => {
   }, []);
 
   const updatePayouts = useCallback((payouts: Payout[]) => {
-    setListState((prev) => ({
-      ...prev,
-      payouts,
-    }));
+    setListState((prev) => {
+      const perPage = 10;
+      const totalPages = Math.max(1, Math.ceil(payouts.length / perPage));
+      let currentPage = prev.currentPage;
+      if (currentPage > totalPages) {
+        currentPage = totalPages;
+      }
+      return {
+        ...prev,
+        payouts,
+        totalPages,
+        currentPage,
+      };
+    });
   }, []);
 
   const clearError = useCallback(() => {

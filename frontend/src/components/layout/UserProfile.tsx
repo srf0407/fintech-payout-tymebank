@@ -2,7 +2,6 @@ import { memo } from 'react';
 import {
   Typography,
   Button,
-  IconButton,
   Tooltip,
 } from '@mui/material';
 import { WifiOff, Sync, SyncProblem } from '@mui/icons-material';
@@ -39,13 +38,28 @@ const PollingIndicator = memo<PollingIndicatorProps>(({
   };
 
   return (
-    <Tooltip title={getPollingTooltip()} arrow>
-      <IconButton 
-        size="small"
-        aria-label="Polling status indicator"
+    <Tooltip title={<span style={{ whiteSpace: 'pre-line', fontSize: 14 }}>{getPollingTooltip()}</span>} arrow>
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          padding: '4px 8px',
+          borderRadius: 16,
+          background: '#f5f5f5',
+          color: '#333',
+          fontWeight: 500,
+          fontSize: 15,
+          cursor: 'default',
+          userSelect: 'none',
+        }}
+        aria-label="Polling status info"
+        tabIndex={-1}
       >
         {getPollingIcon()}
-      </IconButton>
+        <span style={{ marginLeft: 8 }}>
+          {isPolling ? 'Polling Status: Active' : error ? 'Polling Status: Error' : 'Polling Status: Stopped'}
+        </span>
+      </span>
     </Tooltip>
   );
 });
