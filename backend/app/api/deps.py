@@ -26,14 +26,30 @@ security_scheme = HTTPBearer(
 
 
 async def get_current_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> User:
     """
     Get the current authenticated user from JWT token.
+    Supports both Authorization header and HTTP-only cookies.
     Raises HTTPException if token is invalid or user not found.
     """
-    if not credentials:
+    token = None
+  
+    if credentials:
+        token = credentials.credentials
+        logger.info("Token found in Authorization header")
+    elif "access_token" in request.cookies:
+        token = request.cookies["access_token"]
+        logger.info("Token found in HTTP-only cookie")
+    else:
+        logger.warning("No token found in Authorization header or cookies", extra={
+            "has_credentials": bool(credentials),
+            "cookies": list(request.cookies.keys())
+        })
+    
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
@@ -41,7 +57,7 @@ async def get_current_user(
         )
     
     try:
-        token_data = verify_access_token(credentials.credentials)
+        token_data = verify_access_token(token)
         
         auth_service = AuthService(db)
         user = await auth_service.get_user_by_google_id(token_data["google_id"])
@@ -71,18 +87,27 @@ async def get_current_user(
 
 
 async def get_current_user_optional(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> Optional[User]:
     """
     Get the current authenticated user from JWT token.
+    Supports both Authorization header and HTTP-only cookies.
     Returns None if no token provided or invalid token.
     """
-    if not credentials:
+    token = None
+    
+    if credentials:
+        token = credentials.credentials
+    elif "access_token" in request.cookies:
+        token = request.cookies["access_token"]
+    
+    if not token:
         return None
     
     try:
-        token_data = verify_access_token(credentials.credentials)
+        token_data = verify_access_token(token)
         auth_service = AuthService(db)
         user = await auth_service.get_user_by_google_id(token_data["google_id"])
         return user

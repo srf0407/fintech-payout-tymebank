@@ -194,6 +194,7 @@ async def exchange_oauth_code_for_token(
         "code": code,
         "grant_type": "authorization_code",
         "redirect_uri": redirect_uri,
+        "code_verifier": code_verifier,
     }
     
     async with httpx.AsyncClient() as client:

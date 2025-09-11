@@ -22,6 +22,9 @@ from ..core.security import (
     generate_code_challenge,
     generate_correlation_id
 )
+
+OAUTH_SCOPES = ["openid", "email", "profile"]
+from ..core.oauth_store import oauth_store
 from ..core.config import settings
 from ..core.logging import get_logger
 from ..models.user import User
@@ -46,6 +49,17 @@ class AuthService:
             state = generate_oauth_state()
             nonce = generate_oauth_nonce()
             code_verifier = generate_code_verifier()
+            code_challenge = generate_code_challenge(code_verifier)
+            
+            session_data = {
+                "state": state,
+                "nonce": nonce,
+                "code_verifier": code_verifier,
+                "code_challenge": code_challenge,
+                "redirect_uri": redirect_uri,
+                "correlation_id": correlation_id
+            }
+            oauth_store.store_session(state, session_data, expires_in_seconds=600)
             
             auth_params = {
                 "client_id": settings.google_client_id,
@@ -54,6 +68,8 @@ class AuthService:
                 "redirect_uri": redirect_uri,
                 "state": state,
                 "nonce": nonce,
+                "code_challenge": code_challenge,
+                "code_challenge_method": "S256",
                 "access_type": "offline",
                 "prompt": "consent"
             }
@@ -95,6 +111,17 @@ class AuthService:
         """
         correlation_id = generate_correlation_id()
         try:
+            session_data = oauth_store.get_session(state)
+            if not session_data:
+                logger.warning("OAuth session not found or expired", extra={
+                    "correlation_id": correlation_id,
+                    "state": state[:8] + "..."
+                })
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid or expired state parameter"
+                )
+            
             if not validate_oauth_state(state):
                 logger.warning("Invalid OAuth state", extra={
                     "correlation_id": correlation_id,
@@ -105,12 +132,36 @@ class AuthService:
                     detail="Invalid or expired state parameter"
                 )
             
-            token_data = await exchange_oauth_code_for_token(code, code_verifier, redirect_uri)
+            stored_code_verifier = session_data["code_verifier"]
+            stored_redirect_uri = session_data["redirect_uri"]
+            stored_nonce = session_data["nonce"]
+            
+            if redirect_uri != stored_redirect_uri:
+                logger.warning("Redirect URI mismatch", extra={
+                    "correlation_id": correlation_id,
+                    "expected": stored_redirect_uri,
+                    "received": redirect_uri
+                })
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Redirect URI mismatch"
+                )
+            
+            code_verifier_to_use = stored_code_verifier if stored_code_verifier else code_verifier
+            token_data = await exchange_oauth_code_for_token(code, code_verifier_to_use, redirect_uri)
             
             user_info = await get_google_user_info(token_data["access_token"])
             google_user = GoogleUserInfo(**user_info)
             
+            if "id_token" in token_data:
+                logger.info("ID token received", extra={
+                    "correlation_id": correlation_id,
+                    "stored_nonce": stored_nonce[:8] + "..."
+                })
+            
             user = await self._create_or_update_user(google_user, correlation_id)
+            
+            oauth_store.delete_session(state)
             
             token_payload = {
                 "sub": str(user.id),
@@ -293,6 +344,3 @@ class AuthService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Logout failed"
             )
-
-
-OAUTH_SCOPES = ["openid", "email", "profile"]
