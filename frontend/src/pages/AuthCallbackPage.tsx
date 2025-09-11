@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import { Typography, Box, CircularProgress, Alert } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../apiClient/services/authService";
+import { useAuth } from "../auth/AuthContext";
 
 const AuthCallbackPage = () => {
 	const navigate = useNavigate();
+	const { setUser } = useAuth();
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 
@@ -27,7 +29,8 @@ const AuthCallbackPage = () => {
 				if (success === "true" && token) {
 					sessionStorage.setItem("auth_token", token);
 					try {
-						await authService.getCurrentUser();
+						const userProfile = await authService.getCurrentUser();
+						setUser(userProfile); 
 						navigate("/dashboard");
 					} catch (err) {
 						setErrorMsg("Failed to fetch user profile after login.");
