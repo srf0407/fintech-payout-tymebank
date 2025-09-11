@@ -14,8 +14,7 @@ class PayoutCreate(BaseModel):
 
     amount: Decimal = Field(..., gt=Decimal("0"))
     currency: str = Field(..., min_length=3, max_length=3)
-    recipient_account: str = Field(..., min_length=1)
-    reference: str = Field(..., min_length=1)
+    reference: Optional[str] = Field(None, min_length=1)
     metadata_json: Optional[dict[str, Any]] = None
 
     @field_validator("amount", mode="before")

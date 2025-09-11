@@ -143,7 +143,7 @@ class PayoutService:
     ) -> Payout:
         """Create payout in database within transaction."""
         try:
-            reference = f"PAY_{uuid.uuid4().hex[:16].upper()}"
+            reference = payout_data.reference or f"PAY_{uuid.uuid4().hex[:16].upper()}"
             
             payout = Payout(
                 reference=reference,
