@@ -50,7 +50,7 @@ class Settings(BaseSettings):
         return v
 
     model_config = SettingsConfigDict(
-        env_file="backend/app/.env",
+        env_file="app/.env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
