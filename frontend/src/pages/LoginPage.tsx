@@ -1,4 +1,4 @@
-import { useEffect, memo, useCallback, useState } from "react";
+import { useEffect, memo, useCallback } from "react";
 import {
 	Typography,
 	Box,
@@ -8,16 +8,14 @@ import {
 	Alert,
 	CircularProgress,
 } from "@mui/material";
-import { Google as GoogleIcon, WifiOff, Error as ErrorIcon, Refresh } from "@mui/icons-material";
+import { Google as GoogleIcon, WifiOff, Error as ErrorIcon } from "@mui/icons-material";
 import styles from "./LoginPage.module.css";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { retryService } from "../utils/retryService";
 
 const LoginPage = memo(() => {
 	const { user, isLoading, error, login, clearError, setError } = useAuth();
 	const navigate = useNavigate();
-	const [retrying, setRetrying] = useState(false);
 
 	// Redirect to dashboard if already logged in
 	useEffect(() => {
@@ -106,28 +104,6 @@ const LoginPage = memo(() => {
 		}
 	};
 
-	const handleRetry = async () => {
-		setRetrying(true);
-		clearError();
-		
-		try {
-			// Check if backend is back up
-			const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
-			const isBackendHealthy = await retryService.checkBackendHealth(baseUrl);
-			
-			if (isBackendHealthy) {
-				// Backend is back up, try login again
-				await login();
-			} else {
-				// Still down - the error will be set by the login function
-				console.log("Backend is still unavailable");
-			}
-		} catch (error) {
-			console.error("Retry failed:", error);
-		} finally {
-			setRetrying(false);
-		}
-	};
 
 	const handleGoogleLogin = useCallback(async () => {
 		clearError();
@@ -191,17 +167,6 @@ const LoginPage = memo(() => {
 											There seems to be a network connectivity issue. Please check your internet connection.
 										</Typography>
 									)}
-									
-									<Button
-										variant="contained"
-										size="small"
-										startIcon={retrying ? <CircularProgress size={16} /> : <Refresh />}
-										onClick={handleRetry}
-										disabled={retrying || isLoading}
-										sx={{ mt: 1, alignSelf: 'flex-start' }}
-									>
-										{retrying ? "Checking..." : errorType === 'backend_down' ? "Check Server & Retry" : "Try Again"}
-									</Button>
 								</Box>
 							</Alert>
 						);
