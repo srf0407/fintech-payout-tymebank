@@ -79,7 +79,7 @@ export const useConnectionStatus = (): UseConnectionStatusReturn => {
         async () => {
           // Try health endpoint first (doesn't require auth)
           const healthResponse = await fetch(`${baseUrl}/health`, {
-            method: 'HEAD',
+            method: 'GET',
             signal: AbortSignal.timeout(3000)
           });
           
@@ -89,7 +89,7 @@ export const useConnectionStatus = (): UseConnectionStatusReturn => {
           
           // If health endpoint fails, try auth endpoint
           const authResponse = await fetch(`${baseUrl}/auth/me`, {
-            method: 'HEAD',
+            method: 'GET',
             credentials: 'include',
             signal: AbortSignal.timeout(3000)
           });

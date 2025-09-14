@@ -131,7 +131,7 @@ class RetryService {
   async checkBackendHealth(baseUrl: string): Promise<boolean> {
     try {
       const response = await fetch(`${baseUrl}/health`, {
-        method: 'HEAD',
+        method: 'GET',
         signal: AbortSignal.timeout(5000) // 5 second timeout
       });
       return response.ok;
