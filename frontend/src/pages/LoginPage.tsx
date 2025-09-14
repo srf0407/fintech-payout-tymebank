@@ -1,4 +1,4 @@
-import { useEffect, memo, useCallback } from "react";
+import { useEffect, memo, useCallback, useState } from "react";
 import {
 	Typography,
 	Box,
@@ -8,14 +8,16 @@ import {
 	Alert,
 	CircularProgress,
 } from "@mui/material";
-import { Google as GoogleIcon } from "@mui/icons-material";
+import { Google as GoogleIcon, WifiOff, Error as ErrorIcon, Refresh } from "@mui/icons-material";
 import styles from "./LoginPage.module.css";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { retryService } from "../utils/retryService";
 
 const LoginPage = memo(() => {
-	const { user, isLoading, error, login, clearError } = useAuth();
+	const { user, isLoading, error, login, clearError, setError } = useAuth();
 	const navigate = useNavigate();
+	const [retrying, setRetrying] = useState(false);
 
 	// Redirect to dashboard if already logged in
 	useEffect(() => {
@@ -29,29 +31,111 @@ const LoginPage = memo(() => {
 		const urlParams = new URLSearchParams(window.location.search);
 		const urlError = urlParams.get("error");
 		if (urlError) {
-			// Set error from URL parameter
-			const errorMessage = decodeURIComponent(urlError);
-			// We need to set this error in the auth context
-			// For now, we'll just log it and show a generic message
-			console.error("OAuth error from URL:", errorMessage);
+			// Convert URL error to user-friendly message
+			let errorMessage = "";
+			switch (urlError) {
+				case "oauth_failed":
+					errorMessage = "Authentication failed. Please try logging in again.";
+					break;
+				case "server_error":
+					errorMessage = "The server is currently unavailable. Please try again in a moment.";
+					break;
+				case "missing_parameters":
+					errorMessage = "Invalid authentication request. Please try again.";
+					break;
+				case "profile_failed":
+					errorMessage = "Failed to fetch user profile after login. Please try again.";
+					break;
+				case "unexpected":
+					errorMessage = "Unexpected error during authentication. Please try again.";
+					break;
+				default:
+					errorMessage = `Authentication failed: ${urlError}`;
+			}
+			
+			// Set error in auth context
+			clearError(); // Clear any existing error first
+			setTimeout(() => {
+				setError(errorMessage);
+			}, 100);
+			
 			// Clean up URL
 			window.history.replaceState({}, document.title, window.location.pathname);
 		}
-	}, []);
+	}, [clearError, setError]);
+
+	const getErrorType = (errorMessage: string): 'backend_down' | 'auth_failed' | 'network' | 'unknown' => {
+		if (errorMessage.includes("server is currently unavailable") || 
+			errorMessage.includes("BACKEND_UNAVAILABLE") ||
+			errorMessage.includes("server is temporarily unavailable")) {
+			return 'backend_down';
+		}
+		if (errorMessage.includes("authentication") || 
+			errorMessage.includes("login failed") ||
+			errorMessage.includes("auth")) {
+			return 'auth_failed';
+		}
+		if (errorMessage.includes("network") || 
+			errorMessage.includes("connection") ||
+			errorMessage.includes("fetch")) {
+			return 'network';
+		}
+		return 'unknown';
+	};
+
+	const getErrorIcon = (errorType: 'backend_down' | 'auth_failed' | 'network' | 'unknown') => {
+		switch (errorType) {
+			case 'backend_down':
+				return <WifiOff />;
+			case 'network':
+				return <WifiOff />;
+			case 'auth_failed':
+				return <ErrorIcon />;
+			default:
+				return <ErrorIcon />;
+		}
+	};
+
+	const getErrorSeverity = (errorType: 'backend_down' | 'auth_failed' | 'network' | 'unknown') => {
+		switch (errorType) {
+			case 'backend_down':
+			case 'network':
+				return 'warning';
+			default:
+				return 'error';
+		}
+	};
+
+	const handleRetry = async () => {
+		setRetrying(true);
+		clearError();
+		
+		try {
+			// Check if backend is back up
+			const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+			const isBackendHealthy = await retryService.checkBackendHealth(baseUrl);
+			
+			if (isBackendHealthy) {
+				// Backend is back up, try login again
+				await login();
+			} else {
+				// Still down - the error will be set by the login function
+				console.log("Backend is still unavailable");
+			}
+		} catch (error) {
+			console.error("Retry failed:", error);
+		} finally {
+			setRetrying(false);
+		}
+	};
 
 	const handleGoogleLogin = useCallback(async () => {
 		clearError();
 		try {
 			await login();
 		} catch (error) {
-			// Check if this is a backend down error
-			if (error instanceof Error && error.message.includes("BACKEND_UNAVAILABLE")) {
-				// Don't redirect to OAuth - show error instead
-				const errorMessage = error.message.split(":")[1] || "Service temporarily unavailable. Please try again in a moment.";
-				// We need to set this error in the auth context
-				// For now, we'll just log it and show a generic message
-				console.error("Backend unavailable during login:", errorMessage);
-			}
+			// Error handling is now done in AuthContext
+			console.error("Login failed:", error);
 		}
 	}, [clearError, login]);
 
@@ -75,16 +159,53 @@ const LoginPage = memo(() => {
 					</Typography>
 					<Divider style={{ width: "100%", margin: "16px 0" }} />
 
-					{/* Error Display */}
-					{error && (
-						<Alert
-							severity='error'
-							onClose={clearError}
-							sx={{ width: "100%", mb: 2 }}
-						>
-							{error}
-						</Alert>
-					)}
+					{/* Enhanced Error Display */}
+					{error && (() => {
+						const errorType = getErrorType(error);
+						return (
+							<Alert
+								severity={getErrorSeverity(errorType)}
+								onClose={clearError}
+								sx={{ width: "100%", mb: 2 }}
+								icon={getErrorIcon(errorType)}
+							>
+								<Box display="flex" flexDirection="column" gap={2}>
+									<Typography variant="body1" fontWeight="medium">
+										{error}
+									</Typography>
+									
+									{errorType === 'backend_down' && (
+										<Typography variant="body2" color="text.secondary">
+											This usually means the server is temporarily unavailable. Please try again in a moment.
+										</Typography>
+									)}
+									
+									{errorType === 'auth_failed' && (
+										<Typography variant="body2" color="text.secondary">
+											There was an issue with the authentication process. Please try logging in again.
+										</Typography>
+									)}
+									
+									{errorType === 'network' && (
+										<Typography variant="body2" color="text.secondary">
+											There seems to be a network connectivity issue. Please check your internet connection.
+										</Typography>
+									)}
+									
+									<Button
+										variant="contained"
+										size="small"
+										startIcon={retrying ? <CircularProgress size={16} /> : <Refresh />}
+										onClick={handleRetry}
+										disabled={retrying || isLoading}
+										sx={{ mt: 1, alignSelf: 'flex-start' }}
+									>
+										{retrying ? "Checking..." : errorType === 'backend_down' ? "Check Server & Retry" : "Try Again"}
+									</Button>
+								</Box>
+							</Alert>
+						);
+					})()}
 
 					{/* Login Button */}
 					<Button

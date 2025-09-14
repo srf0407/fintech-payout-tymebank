@@ -10,6 +10,7 @@ interface AuthContextType {
 	login: () => Promise<void>;
 	logout: () => Promise<void>;
 	clearError: () => void;
+	setError: (error: string) => void;
 	setUser: (user: UserProfile | null) => void;
 }
 
@@ -88,6 +89,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 			setError(null);
 		};
 
+		/**
+		 * Sets an authentication error (useful for URL parameters).
+		 */
+		const setAuthError = (errorMessage: string) => {
+			setError(errorMessage);
+		};
+
 
 		return (
 			<AuthContext.Provider
@@ -98,6 +106,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 					login,
 					logout,
 					clearError,
+					setError: setAuthError,
 					setUser
 				}}
 			>
