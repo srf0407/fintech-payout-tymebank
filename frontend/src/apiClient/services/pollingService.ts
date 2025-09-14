@@ -181,17 +181,12 @@ class PollingService {
 				this.notifyStatusChange();
 			}
 		} else {
-			console.error("Polling error after retries:", result.error);
-			console.log("Error type:", typeof result.error, "Error constructor:", result.error?.constructor?.name);
-
 			this.error =
 				result.error instanceof Error 
 					? result.error.message 
 					: typeof result.error === 'string' 
 						? result.error 
-						: "Unknown polling error";
-			
-			console.log("Set polling error to:", this.error, "Type:", typeof this.error);
+						: "Unable to fetch payout updates";
 			this.notifyStatusChange();
 
 			// On error, wait longer before next poll

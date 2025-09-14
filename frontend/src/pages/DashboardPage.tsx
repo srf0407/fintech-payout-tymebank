@@ -164,7 +164,7 @@ const DashboardPage = memo(() => {
 				)}
 				{pollingError && (
 					<Alert severity='warning' sx={{ mb: 2, maxWidth: "400px" }}>
-						Update error: {typeof pollingError === 'string' ? pollingError : String(pollingError)}
+						Update error: {typeof pollingError === 'string' ? pollingError : "Unable to fetch payout updates"}
 					</Alert>
 				)}
 
