@@ -174,7 +174,7 @@ const DashboardPage = memo(() => {
 							if (pollingError && typeof pollingError === 'object' && pollingError.message) {
 								return pollingError.message;
 							}
-							return "Unable to fetch payout updates. Please try again later.";
+							return "Server is currently unavailable. Please try again later.";
 						})()}
 					</Alert>
 				)}
