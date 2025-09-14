@@ -184,43 +184,44 @@ class PollingService {
 			// Convert any error to a user-friendly string
 			let errorMessage = "Server is currently unavailable. Please try again later.";
 			
+			// Helper function to check if error indicates server unavailability
+			const isServerUnavailableError = (errorText: string): boolean => {
+				const serverUnavailablePatterns = [
+					'fetch',
+					'Failed to fetch',
+					'NetworkError',
+					'timeout',
+					'session has expired',
+					'expired',
+					'connection',
+					'refused',
+					'unavailable'
+				];
+				return serverUnavailablePatterns.some(pattern => 
+					errorText.toLowerCase().includes(pattern.toLowerCase())
+				);
+			};
+
 			if (result.error instanceof Error) {
-				// Convert technical error messages to user-friendly ones
-				if (result.error.message.includes('fetch') || result.error.message.includes('Failed to fetch')) {
-					errorMessage = "Server is currently unavailable. Please try again later.";
-				} else if (result.error.message.includes('NetworkError')) {
-					errorMessage = "Server is currently unavailable. Please try again later.";
-				} else if (result.error.message.includes('timeout')) {
-					errorMessage = "Server is currently unavailable. Please try again later.";
-				} else if (result.error.message.includes('session has expired') || result.error.message.includes('expired')) {
+				if (isServerUnavailableError(result.error.message)) {
 					errorMessage = "Server is currently unavailable. Please try again later.";
 				} else {
 					errorMessage = result.error.message;
 				}
 			} else if (typeof result.error === 'string') {
-				if (result.error.includes('fetch') || result.error.includes('Failed to fetch')) {
-					errorMessage = "Server is currently unavailable. Please try again later.";
-				} else if (result.error.includes('NetworkError')) {
-					errorMessage = "Server is currently unavailable. Please try again later.";
-				} else if (result.error.includes('session has expired') || result.error.includes('expired')) {
+				if (isServerUnavailableError(result.error)) {
 					errorMessage = "Server is currently unavailable. Please try again later.";
 				} else {
 					errorMessage = result.error;
 				}
 			} else if (result.error && typeof result.error === 'object') {
 				// Handle fetch errors, network errors, etc.
-				if (result.error.name === 'TypeError' && result.error.message.includes('fetch')) {
+				if (result.error.name === 'TypeError' || result.error.name === 'AbortError') {
 					errorMessage = "Server is currently unavailable. Please try again later.";
-				} else if (result.error.name === 'AbortError') {
+				} else if (result.error.message && isServerUnavailableError(result.error.message)) {
 					errorMessage = "Server is currently unavailable. Please try again later.";
 				} else if (result.error.message) {
-					if (result.error.message.includes('fetch') || result.error.message.includes('Failed to fetch')) {
-						errorMessage = "Server is currently unavailable. Please try again later.";
-					} else if (result.error.message.includes('session has expired') || result.error.message.includes('expired')) {
-						errorMessage = "Server is currently unavailable. Please try again later.";
-					} else {
-						errorMessage = result.error.message;
-					}
+					errorMessage = result.error.message;
 				}
 			}
 			
