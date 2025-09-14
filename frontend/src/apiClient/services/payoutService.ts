@@ -42,6 +42,7 @@ class PayoutService {
 					credentials: "include", // Include cookies
 					headers,
 					body: JSON.stringify(bodyData),
+					signal: AbortSignal.timeout(10000), // 10 second timeout for creation
 				});
 
 				if (!response.ok) {
@@ -95,6 +96,7 @@ class PayoutService {
 					{
 						credentials: "include", // Include cookies
 						headers,
+						signal: AbortSignal.timeout(5000), // 5 second timeout
 					}
 				);
 

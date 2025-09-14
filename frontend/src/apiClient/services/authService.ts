@@ -107,6 +107,7 @@ class AuthService {
 				const response = await fetch(`${this.baseUrl}/auth/me`, {
 					credentials: "include", // Include cookies
 					headers,
+					signal: AbortSignal.timeout(5000), // 5 second timeout
 				});
 
 				if (!response.ok) {
@@ -162,6 +163,7 @@ class AuthService {
 					method: "POST",
 					credentials: "include", // Include cookies
 					headers,
+					signal: AbortSignal.timeout(5000), // 5 second timeout
 				});
 
 				if (!response.ok) {

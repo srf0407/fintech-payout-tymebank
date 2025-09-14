@@ -42,6 +42,10 @@ class RetryService {
   private isRetryableError(error: any): boolean {
     // Check if it's a fetch error (network issues)
     if (error instanceof TypeError && error.message.includes('fetch')) {
+      // For "Failed to fetch" errors, don't retry - backend is likely down
+      if (error.message.includes('Failed to fetch')) {
+        return false;
+      }
       return true;
     }
 
@@ -214,9 +218,15 @@ class RetryService {
             attempt: attempt + 1,
           });
           
+          // Convert "Failed to fetch" to a more specific error
+          let finalError = error;
+          if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+            finalError = new Error('Server is currently unavailable. Please try again later.');
+          }
+          
           return {
             success: false,
-            error: error,
+            error: finalError,
             attempts: attempt + 1,
             finalError: backendError || undefined,
           };
@@ -231,9 +241,15 @@ class RetryService {
             backendError,
           });
 
+          // Convert "Failed to fetch" to a more specific error
+          let finalError = error;
+          if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+            finalError = new Error('Server is currently unavailable. Please try again later.');
+          }
+
           return {
             success: false,
-            error: error,
+            error: finalError,
             attempts: attempt + 1,
             finalError: backendError || undefined,
           };
@@ -350,6 +366,15 @@ export const RETRY_CONFIGS = {
     baseDelay: 1000,
     maxDelay: 3000,
     exponentialBase: 1,
+    jitter: false,
+  },
+  
+  // Fast fail for when backend is detected as down
+  BACKEND_DOWN: {
+    maxRetries: 1,
+    baseDelay: 0,
+    maxDelay: 0,
+    exponentialBase: 2,
     jitter: false,
   },
 } as const;
