@@ -181,12 +181,44 @@ class PollingService {
 				this.notifyStatusChange();
 			}
 		} else {
-			this.error =
-				result.error instanceof Error 
-					? result.error.message 
-					: typeof result.error === 'string' 
-						? result.error 
-						: "Unable to fetch payout updates";
+			// Convert any error to a user-friendly string
+			let errorMessage = "Unable to fetch payout updates. Please try again later.";
+			
+			if (result.error instanceof Error) {
+				// Convert technical error messages to user-friendly ones
+				if (result.error.message.includes('fetch') || result.error.message.includes('Failed to fetch')) {
+					errorMessage = "Connection lost. Please try again later.";
+				} else if (result.error.message.includes('NetworkError')) {
+					errorMessage = "Network error. Please check your connection and try again later.";
+				} else if (result.error.message.includes('timeout')) {
+					errorMessage = "Request timed out. Please try again later.";
+				} else {
+					errorMessage = result.error.message;
+				}
+			} else if (typeof result.error === 'string') {
+				if (result.error.includes('fetch') || result.error.includes('Failed to fetch')) {
+					errorMessage = "Connection lost. Please try again later.";
+				} else if (result.error.includes('NetworkError')) {
+					errorMessage = "Network error. Please check your connection and try again later.";
+				} else {
+					errorMessage = result.error;
+				}
+			} else if (result.error && typeof result.error === 'object') {
+				// Handle fetch errors, network errors, etc.
+				if (result.error.name === 'TypeError' && result.error.message.includes('fetch')) {
+					errorMessage = "Connection lost. Please try again later.";
+				} else if (result.error.name === 'AbortError') {
+					errorMessage = "Request was cancelled. Please try again later.";
+				} else if (result.error.message) {
+					if (result.error.message.includes('fetch') || result.error.message.includes('Failed to fetch')) {
+						errorMessage = "Connection lost. Please try again later.";
+					} else {
+						errorMessage = result.error.message;
+					}
+				}
+			}
+			
+			this.error = errorMessage;
 			this.notifyStatusChange();
 
 			// On error, wait longer before next poll
