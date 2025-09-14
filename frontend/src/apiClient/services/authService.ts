@@ -47,7 +47,7 @@ class AuthService {
 		// First, check if backend is reachable
 		const isBackendHealthy = await retryService.checkBackendHealth(this.baseUrl);
 		if (!isBackendHealthy) {
-			const error = new Error("BACKEND_UNAVAILABLE:Service temporarily unavailable. Please check your connection and try again.");
+			const error = new Error("BACKEND_UNAVAILABLE:The server is currently unavailable. Please try again in a moment.");
 			(error as any).isBackendDown = true;
 			throw error;
 		}
@@ -83,7 +83,7 @@ class AuthService {
 			
 			// Check if this is a backend down error
 			if (isBackendDownError(result.error)) {
-				const error = new Error("BACKEND_UNAVAILABLE:Service temporarily unavailable. Please check your connection and try again.");
+				const error = new Error("BACKEND_UNAVAILABLE:The server is currently unavailable. Please try again in a moment.");
 				(error as any).isBackendDown = true;
 				throw error;
 			}

@@ -29,7 +29,7 @@ const AuthCallbackPage = memo(() => {
 				navigate("/login");
 			} else {
 				// Still down
-				setErrorMsg("Service is still unavailable. Please check your connection and try again.");
+				setErrorMsg("The server is still unavailable. Please try again in a moment.");
 				setErrorType('backend_down');
 			}
 		} catch (error) {
@@ -63,7 +63,7 @@ const AuthCallbackPage = memo(() => {
 						setErrorMsg("Authentication failed. Please try logging in again.");
 						setErrorType('auth_failed');
 					} else if (error === "oauth_failed" || error === "server_error") {
-						setErrorMsg("Service temporarily unavailable. The server appears to be down.");
+						setErrorMsg("The server is currently unavailable. Please try again in a moment.");
 						setErrorType('backend_down');
 					} else if (error === "missing_parameters") {
 						setErrorMsg("Invalid authentication request. Please try again.");
@@ -90,7 +90,7 @@ const AuthCallbackPage = memo(() => {
 					} catch (err) {
 						// Check if this is a backend down error
 						if (isBackendDownError(err)) {
-							setErrorMsg("Service temporarily unavailable. Unable to complete login.");
+							setErrorMsg("The server is currently unavailable. Unable to complete login.");
 							setErrorType('backend_down');
 						} else {
 							setErrorMsg("Failed to fetch user profile after login. Please try again.");
@@ -133,12 +133,12 @@ const AuthCallbackPage = memo(() => {
 		}
 	};
 
-	const getRetryButtonText = () => {
+		const getRetryButtonText = () => {
 		if (retrying) return "Checking...";
 		switch (errorType) {
 			case 'backend_down':
 			case 'network':
-				return "Check Connection & Retry";
+				return "Check Server & Retry";
 			default:
 				return "Try Again";
 		}
@@ -169,7 +169,7 @@ const AuthCallbackPage = memo(() => {
 						
 						{errorType === 'backend_down' && (
 							<Typography variant="body2" color="text.secondary">
-								This usually means the server is temporarily unavailable. Please check your connection and try again.
+								This usually means the server is temporarily unavailable. Please try again in a moment.
 							</Typography>
 						)}
 						

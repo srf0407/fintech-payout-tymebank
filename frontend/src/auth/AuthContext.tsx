@@ -53,7 +53,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 			} catch (err) {
 				if (err instanceof Error && err.message.includes("BACKEND_UNAVAILABLE")) {
 					// Extract user-friendly message
-					const errorMessage = err.message.split(":")[1] || "Service temporarily unavailable. Please check your connection and try again.";
+					const errorMessage = err.message.split(":")[1] || "The server is currently unavailable. Please try again in a moment.";
 					setError(errorMessage);
 				} else {
 					setError(err instanceof Error ? err.message : "Login failed");
