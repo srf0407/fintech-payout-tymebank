@@ -117,9 +117,14 @@ class AuthService {
 						return this.getCurrentUser();
 					}
 					const errorData: AuthError = await response.json();
-					const error = new Error(
-						errorData.error_description || "Failed to get user info"
-					);
+					let errorMessage = errorData.error_description || "Failed to get user info";
+					
+					// Convert session expiration errors to server unavailability when server is down
+					if (errorMessage.includes('session has expired') || errorMessage.includes('expired')) {
+						errorMessage = "Server is currently unavailable. Please try again later.";
+					}
+					
+					const error = new Error(errorMessage);
 					(error as any).status = response.status;
 					(error as any).response = response;
 					throw error;
@@ -161,7 +166,14 @@ class AuthService {
 
 				if (!response.ok) {
 					const errorData: AuthError = await response.json();
-					const error = new Error(errorData.error_description || "Token refresh failed");
+					let errorMessage = errorData.error_description || "Token refresh failed";
+					
+					// Convert session expiration errors to server unavailability when server is down
+					if (errorMessage.includes('session has expired') || errorMessage.includes('expired')) {
+						errorMessage = "Server is currently unavailable. Please try again later.";
+					}
+					
+					const error = new Error(errorMessage);
 					(error as any).status = response.status;
 					(error as any).response = response;
 					throw error;

@@ -55,6 +55,12 @@ class PayoutService {
 							errorMessage = errorData.detail.message || JSON.stringify(errorData.detail);
 						}
 					}
+					
+					// Convert session expiration errors to server unavailability when server is down
+					if (errorMessage.includes('session has expired') || errorMessage.includes('expired')) {
+						errorMessage = "Server is currently unavailable. Please try again later.";
+					}
+					
 					const error = new Error(errorMessage);
 					(error as any).status = response.status;
 					(error as any).response = response;
@@ -103,6 +109,12 @@ class PayoutService {
 							errorMessage = errorData.detail.message || JSON.stringify(errorData.detail);
 						}
 					}
+					
+					// Convert session expiration errors to server unavailability when server is down
+					if (errorMessage.includes('session has expired') || errorMessage.includes('expired')) {
+						errorMessage = "Server is currently unavailable. Please try again later.";
+					}
+					
 					const error = new Error(errorMessage);
 					(error as any).status = response.status;
 					(error as any).response = response;
