@@ -4,6 +4,7 @@
  */
 
 import { payoutService, type Payout } from "./payoutService";
+import { retryService, RETRY_CONFIGS } from "../../utils/retryService";
 
 export type { Payout };
 
@@ -131,22 +132,30 @@ class PollingService {
 	}
 
 	private async performPoll(): Promise<void> {
-		try {
-			this.pollCount++;
+		this.pollCount++;
 
-			// Prevent infinite polling
-			if (this.pollCount > this.MAX_POLL_COUNT) {
-				console.warn("Max poll count reached, stopping polling");
-				this.stopPolling();
-				return;
-			}
+		// Prevent infinite polling
+		if (this.pollCount > this.MAX_POLL_COUNT) {
+			console.warn("Max poll count reached, stopping polling");
+			this.stopPolling();
+			return;
+		}
 
-			// Get current payouts from API for the current page
-			const response = await payoutService.getPayouts(
-				this.currentPage,
-				this.perPage
-			);
-			const newPayouts = response.items;
+		const result = await retryService.retry(
+			async () => {
+				// Get current payouts from API for the current page
+				const response = await payoutService.getPayouts(
+					this.currentPage,
+					this.perPage
+				);
+				return response.items;
+			},
+			RETRY_CONFIGS.CONSERVATIVE, // Use conservative retry for background polling
+			`polling-${this.pollCount}`
+		);
+
+		if (result.success) {
+			const newPayouts = result.data!;
 
 			// Check for changes
 			const changes = this.detectChanges(this.currentPayouts, newPayouts);
@@ -171,11 +180,11 @@ class PollingService {
 				this.error = null;
 				this.notifyStatusChange();
 			}
-		} catch (error) {
-			console.error("Polling error:", error);
+		} else {
+			console.error("Polling error after retries:", result.error);
 
 			this.error =
-				error instanceof Error ? error.message : "Unknown polling error";
+				result.error instanceof Error ? result.error.message : "Unknown polling error";
 			this.notifyStatusChange();
 
 			// On error, wait longer before next poll

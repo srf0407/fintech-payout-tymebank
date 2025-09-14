@@ -13,6 +13,7 @@ from fastapi import HTTPException, status
 from ..core.config import settings
 from ..core.logging import get_logger
 from ..core.security import generate_correlation_id
+from ..core.errors import create_rate_limit_error
 
 logger = get_logger(__name__)
 
@@ -402,20 +403,8 @@ def create_rate_limit_exception(retry_after: int, correlation_id: str, limit_typ
     
     limit = limits.get(limit_type, settings.auth_general_rate_limit)
     
-    return HTTPException(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail={
-            "error": "rate_limit_exceeded",
-            "message": f"Too many {limit_type} requests. Please try again later.",
-            "retry_after": retry_after,
-            "correlation_id": correlation_id,
-            "limit_type": limit_type
-        },
-        headers={
-            "Retry-After": str(retry_after),
-            "X-RateLimit-Limit": str(limit),
-            "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": str(int(time.time()) + retry_after),
-            "X-RateLimit-Type": limit_type
-        }
+    return create_rate_limit_error(
+        retry_after=retry_after,
+        limit_type=limit_type,
+        correlation_id=correlation_id
     )

@@ -21,6 +21,15 @@ from ...schemas.payouts import (
 from ...services.payout_service import PayoutService
 from ...core.logging import get_logger
 from ...core.security import sanitize_log_data
+from ...core.errors import (
+    create_validation_error,
+    create_rate_limit_error,
+    create_database_error,
+    create_payment_provider_error,
+    create_internal_server_error,
+    create_not_found_error,
+    create_conflict_error
+)
 
 logger = get_logger(__name__)
 
@@ -77,9 +86,9 @@ async def create_payout(
             "amount": str(payout_data.amount),
             "currency": payout_data.currency
         })
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create payout"
+        raise create_internal_server_error(
+            message="Unable to create payout. Please try again",
+            correlation_id=correlation_id
         )
 
 
@@ -133,9 +142,9 @@ async def list_payouts(
             "page_size": page_size,
             "error": str(e)
         })
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve payouts"
+        raise create_internal_server_error(
+            message="Unable to load payouts. Please try again",
+            correlation_id=correlation_id
         )
 
 

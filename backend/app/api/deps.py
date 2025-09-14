@@ -11,6 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.security import verify_access_token, generate_correlation_id
 from ..core.logging import get_logger
+from ..core.errors import (
+    create_auth_required_error,
+    create_token_expired_error,
+    create_rate_limit_error
+)
 from ..db.session import get_db
 from ..models.user import User
 from ..services.auth_service import AuthService
@@ -56,11 +61,7 @@ async def get_current_user(
         })
     
     if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise create_auth_required_error()
     
     try:
         token_data = verify_access_token(token)
@@ -73,11 +74,7 @@ async def get_current_user(
                 "google_id": token_data["google_id"],
                 "user_id": token_data.get("sub")
             })
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            raise create_token_expired_error()
         
         return user
         
@@ -85,11 +82,7 @@ async def get_current_user(
         raise
     except Exception as e:
         logger.error("Authentication error", extra={"error": str(e)})
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise create_auth_required_error()
 
 
 async def get_current_user_optional(

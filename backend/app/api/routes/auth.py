@@ -28,6 +28,14 @@ from ...schemas.auth import (
 from ...core.logging import get_logger
 from ...core.security import sanitize_log_data
 from ...core.config import settings
+from ...core.errors import (
+    create_auth_required_error,
+    create_token_expired_error,
+    create_validation_error,
+    create_rate_limit_error,
+    create_external_service_error,
+    create_internal_server_error
+)
 
 logger = get_logger(__name__)
 
@@ -72,9 +80,9 @@ async def initiate_login(
             "correlation_id": correlation_id,
             "error": str(e)
         })
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to initiate login"
+        raise create_internal_server_error(
+            message="Unable to start login process. Please try again",
+            correlation_id=correlation_id
         )
 
 
@@ -229,9 +237,9 @@ async def refresh_token(
             "user_id": str(current_user.id),
             "error": str(e)
         })
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Token refresh failed"
+        raise create_internal_server_error(
+            message="Unable to refresh your session. Please log in again",
+            correlation_id=correlation_id
         )
 
 
@@ -287,9 +295,9 @@ async def logout(
             "user_id": str(current_user.id),
             "error": str(e)
         })
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Logout failed"
+        raise create_internal_server_error(
+            message="Unable to log out properly. Your session will expire automatically",
+            correlation_id=correlation_id
         )
 
 
@@ -320,9 +328,9 @@ async def get_current_user_info(
             "user_id": str(current_user.id),
             "error": str(e)
         })
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get user information"
+        raise create_internal_server_error(
+            message="Unable to load your profile. Please try again",
+            correlation_id=correlation_id
         )
 
 

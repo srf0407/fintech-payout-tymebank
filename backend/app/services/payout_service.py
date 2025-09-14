@@ -16,6 +16,12 @@ from fastapi import HTTPException, status
 
 from ..core.logging import get_logger
 from ..core.security import generate_correlation_id
+from ..core.errors import (
+    create_database_error,
+    create_payment_provider_error,
+    create_internal_server_error,
+    create_conflict_error
+)
 from ..models.payout import Payout, PayoutStatus
 from ..models.user import User
 from ..schemas.payouts import PayoutCreate, PayoutRead, PayoutList
@@ -182,9 +188,9 @@ class PayoutService:
                 if existing_payout:
                     return existing_payout
             
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Payout creation conflict"
+            raise create_conflict_error(
+                message="This payout has already been created",
+                correlation_id=correlation_id
             )
         except Exception as e:
             await self.db.rollback()
@@ -193,10 +199,19 @@ class PayoutService:
                 "error": str(e),
                 "idempotency_key": idempotency_key
             })
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create payout"
-            )
+            
+            # Check if it's a database connection error
+            if "connection" in str(e).lower() or "timeout" in str(e).lower():
+                raise create_database_error(
+                    message="Service temporarily unavailable. Please try again in a moment",
+                    correlation_id=correlation_id,
+                    retry_after=30
+                )
+            else:
+                raise create_internal_server_error(
+                    message="Unable to create payout. Please try again",
+                    correlation_id=correlation_id
+                )
     
     async def _process_payout_with_provider(
         self,
@@ -322,10 +337,19 @@ class PayoutService:
                 "status": status,
                 "error": str(e)
             })
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update payout status"
-            )
+            
+            # Check if it's a database connection error
+            if "connection" in str(e).lower() or "timeout" in str(e).lower():
+                raise create_database_error(
+                    message="Service temporarily unavailable. Please try again in a moment",
+                    correlation_id=correlation_id,
+                    retry_after=30
+                )
+            else:
+                raise create_internal_server_error(
+                    message="Unable to update payout status. Please try again",
+                    correlation_id=correlation_id
+                )
     
     async def _update_payout_with_provider_response(
         self,
@@ -445,10 +469,19 @@ class PayoutService:
                 "page_size": page_size,
                 "error": str(e)
             })
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve payouts"
-            )
+            
+            # Check if it's a database connection error
+            if "connection" in str(e).lower() or "timeout" in str(e).lower():
+                raise create_database_error(
+                    message="Service temporarily unavailable. Please try again in a moment",
+                    correlation_id=correlation_id,
+                    retry_after=30
+                )
+            else:
+                raise create_internal_server_error(
+                    message="Unable to load payouts. Please try again",
+                    correlation_id=correlation_id
+                )
     
     async def update_payout_from_webhook(
         self,

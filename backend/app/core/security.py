@@ -21,6 +21,7 @@ from cryptography.hazmat.backends import default_backend
 import base64
 
 from .config import settings
+from .errors import create_external_service_error
 import logging
 
 logger = logging.getLogger(__name__)
@@ -219,10 +220,7 @@ async def exchange_oauth_code_for_token(
             )
         except httpx.RequestError as e:
             logger.error("OAuth token exchange request failed", extra={"error": str(e)})
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="OAuth service unavailable"
-            )
+            raise create_external_service_error("Google OAuth", retry_after=60)
 
 
 async def get_google_user_info(access_token: str) -> Dict[str, Any]:
@@ -252,10 +250,7 @@ async def get_google_user_info(access_token: str) -> Dict[str, Any]:
             )
         except httpx.RequestError as e:
             logger.error("Google user info request failed", extra={"error": str(e)})
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Google service unavailable"
-            )
+            raise create_external_service_error("Google", retry_after=60)
 
 
 def verify_webhook_signature_hmac(

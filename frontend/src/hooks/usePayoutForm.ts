@@ -99,14 +99,28 @@ export const usePayoutForm = () => {
           let errorMessage = 'Failed to create payout';
 
           if (error instanceof Error) {
-            if (error.message.includes('rate_limit') || error.message.includes('429')) {
-              errorMessage = 'Too many requests. Please wait a moment before trying again.';
-            } else if (error.message.includes('validation') || error.message.includes('400')) {
-              errorMessage = 'Please check your input and try again.';
-            } else if (error.message.includes('unauthorized') || error.message.includes('401')) {
-              errorMessage = 'Please log in again to continue.';
-            } else {
-              errorMessage = error.message;
+            // Check for backend error response format
+            try {
+              const errorData = JSON.parse(error.message);
+              if (errorData.error && errorData.message) {
+                // Use backend error message directly
+                errorMessage = errorData.message;
+              } else {
+                errorMessage = error.message;
+              }
+            } catch {
+              // Fallback to original error message parsing
+              if (error.message.includes('rate_limit') || error.message.includes('429')) {
+                errorMessage = 'Too many requests. Please wait a moment before trying again.';
+              } else if (error.message.includes('validation') || error.message.includes('400')) {
+                errorMessage = 'Please check your input and try again.';
+              } else if (error.message.includes('unauthorized') || error.message.includes('401')) {
+                errorMessage = 'Please log in again to continue.';
+              } else if (error.message.includes('database_connection_error') || error.message.includes('503')) {
+                errorMessage = 'Service temporarily unavailable. Please try again in a moment.';
+              } else {
+                errorMessage = error.message;
+              }
             }
           }
 
