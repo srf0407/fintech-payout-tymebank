@@ -41,7 +41,18 @@ const LoginPage = memo(() => {
 
 	const handleGoogleLogin = useCallback(async () => {
 		clearError();
-		await login();
+		try {
+			await login();
+		} catch (error) {
+			// Check if this is a backend down error
+			if (error instanceof Error && error.message.includes("BACKEND_UNAVAILABLE")) {
+				// Don't redirect to OAuth - show error instead
+				const errorMessage = error.message.split(":")[1] || "Service temporarily unavailable. Please try again in a moment.";
+				// We need to set this error in the auth context
+				// For now, we'll just log it and show a generic message
+				console.error("Backend unavailable during login:", errorMessage);
+			}
+		}
 	}, [clearError, login]);
 
 	return (

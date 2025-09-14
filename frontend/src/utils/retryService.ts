@@ -45,6 +45,19 @@ class RetryService {
       return true;
     }
 
+    // Check for specific network error types
+    if (error.message && (
+      error.message.includes('ERR_CONNECTION_REFUSED') ||
+      error.message.includes('ERR_NETWORK_CHANGED') ||
+      error.message.includes('ERR_INTERNET_DISCONNECTED') ||
+      error.message.includes('ERR_CONNECTION_TIMED_OUT') ||
+      error.message.includes('Failed to fetch') ||
+      error.message.includes('NetworkError') ||
+      error.message.includes('connection')
+    )) {
+      return true;
+    }
+
     // Check if it's an HTTP error with status code
     if (error.status) {
       const retryableStatusCodes = [429, 500, 502, 503, 504, 408];
@@ -68,6 +81,36 @@ class RetryService {
   }
 
   /**
+   * Check if an error indicates backend is down
+   */
+  public isBackendDownError(error: any): boolean {
+    // Network errors that indicate backend is down
+    if (error.message && (
+      error.message.includes('ERR_CONNECTION_REFUSED') ||
+      error.message.includes('Failed to fetch') ||
+      error.message.includes('NetworkError')
+    )) {
+      return true;
+    }
+
+    // HTTP status codes that indicate backend issues
+    if (error.status && [502, 503, 504].includes(error.status)) {
+      return true;
+    }
+
+    // Backend error codes that indicate service issues
+    if (error.error && [
+      'database_connection_error',
+      'external_service_unavailable',
+      'service_unavailable'
+    ].includes(error.error)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Extract backend error response from fetch error
    */
   private async extractBackendError(response: Response): Promise<BackendErrorResponse | null> {
@@ -80,6 +123,21 @@ class RetryService {
       // If we can't parse JSON, return null
     }
     return null;
+  }
+
+  /**
+   * Check if backend is reachable
+   */
+  async checkBackendHealth(baseUrl: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${baseUrl}/health`, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
   }
 
   /**
@@ -285,4 +343,18 @@ export const RETRY_CONFIGS = {
     exponentialBase: 2,
     jitter: true,
   },
+  
+  // Health check retry for backend connectivity tests
+  HEALTH_CHECK: {
+    maxRetries: 1,
+    baseDelay: 1000,
+    maxDelay: 3000,
+    exponentialBase: 1,
+    jitter: false,
+  },
 } as const;
+
+// Export error detection utilities
+export const isBackendDownError = (error: any): boolean => {
+  return retryService.isBackendDownError(error);
+};

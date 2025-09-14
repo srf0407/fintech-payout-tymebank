@@ -5,7 +5,7 @@
 
 import type { UserProfile } from '../../types';
 import { createHeadersWithCorrelationId } from '../../utils/correlationService';
-import { retryService, RETRY_CONFIGS } from '../../utils/retryService';
+import { retryService, RETRY_CONFIGS, isBackendDownError } from '../../utils/retryService';
 
 export type { UserProfile };
 
@@ -44,6 +44,14 @@ class AuthService {
 		const headers = createHeadersWithCorrelationId();
 		const correlationId = headers["X-Correlation-ID"];
 
+		// First, check if backend is reachable
+		const isBackendHealthy = await retryService.checkBackendHealth(this.baseUrl);
+		if (!isBackendHealthy) {
+			const error = new Error("BACKEND_UNAVAILABLE:Service temporarily unavailable. Please check your connection and try again.");
+			(error as any).isBackendDown = true;
+			throw error;
+		}
+
 		const result = await retryService.retry(
 			async () => {
 				const response = await fetch(`${this.baseUrl}/auth/login`, {
@@ -72,6 +80,14 @@ class AuthService {
 
 		if (!result.success) {
 			console.error("Login initiation failed after retries:", result.error);
+			
+			// Check if this is a backend down error
+			if (isBackendDownError(result.error)) {
+				const error = new Error("BACKEND_UNAVAILABLE:Service temporarily unavailable. Please check your connection and try again.");
+				(error as any).isBackendDown = true;
+				throw error;
+			}
+			
 			throw result.error;
 		}
 

@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { retryService } from '../utils/retryService';
+import { retryService, RETRY_CONFIGS } from '../utils/retryService';
 
 export interface ConnectionStatus {
   isOnline: boolean;
@@ -77,18 +77,30 @@ export const useConnectionStatus = (): UseConnectionStatusReturn => {
       
       const result = await retryService.retry(
         async () => {
-          const response = await fetch(`${baseUrl}/auth/me`, {
-            method: 'HEAD', // Just test connectivity
-            credentials: 'include',
+          // Try health endpoint first (doesn't require auth)
+          const healthResponse = await fetch(`${baseUrl}/health`, {
+            method: 'HEAD',
+            signal: AbortSignal.timeout(3000)
           });
           
-          if (!response.ok && response.status !== 401) {
-            throw new Error(`HTTP ${response.status}`);
+          if (healthResponse.ok) {
+            return true;
+          }
+          
+          // If health endpoint fails, try auth endpoint
+          const authResponse = await fetch(`${baseUrl}/auth/me`, {
+            method: 'HEAD',
+            credentials: 'include',
+            signal: AbortSignal.timeout(3000)
+          });
+          
+          if (!authResponse.ok && authResponse.status !== 401) {
+            throw new Error(`HTTP ${authResponse.status}`);
           }
           
           return true;
         },
-        { maxRetries: 1, baseDelay: 1000 }, // Quick test
+        RETRY_CONFIGS.HEALTH_CHECK,
         'connection-test'
       );
 
