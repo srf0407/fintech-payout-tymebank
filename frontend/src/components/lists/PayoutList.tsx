@@ -97,7 +97,15 @@ const PayoutList = memo<PayoutListProps>(({
           role="alert"
           aria-live="polite"
         >
-          {error}
+          {(() => {
+            if (error.includes('Failed to fetch')) {
+              return 'Server is currently unavailable. Please try again later.';
+            }
+            if (error.includes('fetch') || error.includes('NetworkError')) {
+              return 'Server is currently unavailable. Please try again later.';
+            }
+            return error;
+          })()}
         </Alert>
       )}
 

@@ -27,7 +27,14 @@ export const useErrorHandler = (): ErrorHandlerReturn => {
       clearTimeout(errorTimeoutRef.current);
     }
 
-    const errorMessage = error instanceof Error ? error.message : error;
+    let errorMessage = error instanceof Error ? error.message : error;
+    
+    // Convert technical errors to user-friendly messages
+    if (errorMessage.includes('Failed to fetch')) {
+      errorMessage = 'Server is currently unavailable. Please try again later.';
+    } else if (errorMessage.includes('fetch') || errorMessage.includes('NetworkError')) {
+      errorMessage = 'Server is currently unavailable. Please try again later.';
+    }
     
     setError({
       error: errorMessage,
@@ -37,7 +44,8 @@ export const useErrorHandler = (): ErrorHandlerReturn => {
 
     // Log error for monitoring
     console.error('Error handled:', {
-      message: errorMessage,
+      originalMessage: error instanceof Error ? error.message : error,
+      convertedMessage: errorMessage,
       correlationId,
       timestamp: new Date().toISOString(),
       stack: error instanceof Error ? error.stack : undefined,
