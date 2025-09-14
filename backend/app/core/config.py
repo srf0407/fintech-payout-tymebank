@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     
     rate_limit_per_minute: int = 10
     
-    auth_login_rate_limit: int = 20  # Increased for development
+    auth_login_rate_limit: int = 20  #
     auth_login_window_minutes: int = 15
     auth_callback_rate_limit: int = 10
     auth_callback_window_minutes: int = 5
