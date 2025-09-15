@@ -18,6 +18,7 @@ from ..core.security import (
     generate_oauth_state,
     generate_oauth_nonce,
     validate_oauth_state,
+    validate_id_token_nonce,
     generate_code_verifier,
     generate_code_challenge,
     generate_correlation_id
@@ -158,14 +159,34 @@ class AuthService:
             
             token_data = await exchange_oauth_code_for_token(code, stored_code_verifier, redirect_uri)
             
-            user_info = await get_google_user_info(token_data["access_token"])
-            google_user = GoogleUserInfo(**user_info)
-            
+            # Validate nonce in ID token if present
             if "id_token" in token_data:
                 logger.info("ID token received", extra={
                     "correlation_id": correlation_id,
                     "stored_nonce": stored_nonce[:8] + "..."
                 })
+                
+                # Validate nonce in ID token to prevent replay attacks
+                try:
+                    validate_id_token_nonce(token_data["id_token"], stored_nonce)
+                    logger.info("Nonce validation successful", extra={
+                        "correlation_id": correlation_id,
+                        "nonce": stored_nonce[:8] + "..."
+                    })
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    logger.error("Nonce validation failed", extra={
+                        "correlation_id": correlation_id,
+                        "error": str(e)
+                    })
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="ID token nonce validation failed"
+                    )
+            
+            user_info = await get_google_user_info(token_data["access_token"])
+            google_user = GoogleUserInfo(**user_info)
             
             user = await self._create_or_update_user(google_user, correlation_id)
             
@@ -194,7 +215,7 @@ class AuthService:
                 expires_in=settings.access_token_expire_minutes * 60,
                 user=UserResponse.model_validate(user)
             )
-            
+        
         except HTTPException:
             raise
         except Exception as e:

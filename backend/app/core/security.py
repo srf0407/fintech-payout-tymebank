@@ -407,6 +407,52 @@ def generate_correlation_id() -> str:
     return str(uuid.uuid4())
 
 
+def validate_id_token_nonce(id_token: str, expected_nonce: str) -> Dict[str, Any]:
+    """
+    Validate ID token nonce to prevent replay attacks.
+    Returns the token payload if valid, raises HTTPException if invalid.
+    """
+    try:
+        # Decode ID token without verification first to get nonce
+        unverified_payload = jwt.get_unverified_claims(id_token)
+        id_token_nonce = unverified_payload.get("nonce")
+        
+        if not id_token_nonce:
+            logger.warning("No nonce found in ID token", extra={
+                "id_token_claims": list(unverified_payload.keys())
+            })
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="ID token missing nonce claim"
+            )
+        
+        # Validate nonce matches expected value
+        if id_token_nonce != expected_nonce:
+            logger.warning("Nonce mismatch in ID token", extra={
+                "expected_nonce": expected_nonce[:8] + "...",
+                "id_token_nonce": id_token_nonce[:8] + "..."
+            })
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="ID token nonce mismatch - possible replay attack"
+            )
+        
+        logger.info("ID token nonce validation successful", extra={
+            "nonce": expected_nonce[:8] + "..."
+        })
+        
+        return unverified_payload
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ID token nonce validation failed", extra={"error": str(e)})
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="ID token nonce validation failed"
+        )
+
+
 def sanitize_log_data(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Remove sensitive data from logs.
