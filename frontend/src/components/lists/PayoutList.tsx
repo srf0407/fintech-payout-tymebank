@@ -1,5 +1,4 @@
 import React, { memo, useCallback, useMemo } from 'react';
-import { PollingIndicator } from '../layout/UserProfile';
 import {
   Typography,
   Box,

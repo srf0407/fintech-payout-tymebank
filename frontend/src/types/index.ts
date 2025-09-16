@@ -128,7 +128,7 @@ export interface PayoutListProps {
 }
 
 export interface UserProfileProps {
-	user: UserProfile;
+	user: UserProfile | null;
 	onLogout: () => Promise<void>;
 	isLoading?: boolean;
 }

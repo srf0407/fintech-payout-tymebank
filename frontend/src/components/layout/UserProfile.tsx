@@ -31,15 +31,7 @@ const PollingIndicator = memo<PollingIndicatorProps>(({
         : 'No updates yet';
       return `Polling active (${pollCount} checks) - ${lastUpdateText}`;
     } else if (error) {
-      let errorMessage = "Server is currently unavailable. Please try again later.";
-      if (typeof error === 'string') {
-        errorMessage = error;
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (error && typeof error === 'object' && error.message) {
-        errorMessage = error.message;
-      }
-      return `Polling error: ${errorMessage}`;
+      return `Polling error: ${error}`;
     } else {
       return 'Polling stopped';
     }
