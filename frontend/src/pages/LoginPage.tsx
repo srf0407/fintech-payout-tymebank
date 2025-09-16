@@ -110,7 +110,6 @@ const LoginPage = memo(() => {
 		try {
 			await login();
 		} catch (error) {
-			// Error handling is now done in AuthContext
 			console.error("Login failed:", error);
 		}
 	}, [clearError, login]);

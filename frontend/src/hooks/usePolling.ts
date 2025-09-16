@@ -12,6 +12,9 @@ export const usePolling = (): UsePollingReturn => {
 	const [status, setStatus] = useState<PollingStatus>(
 		pollingService.getStatus()
 	);
+
+	// Clean up function Prevents memory leaks by removing the listener
+	// use ref no rerender
 	const statusUnsubscribe = useRef<(() => void) | null>(null);
 
 	const startPolling = useCallback((payouts: Payout[]) => {
@@ -45,7 +48,6 @@ export const usePolling = (): UsePollingReturn => {
 			}
 		);
 
-		// Cleanup on unmount
 		return () => {
 			if (statusUnsubscribe.current) {
 				statusUnsubscribe.current();

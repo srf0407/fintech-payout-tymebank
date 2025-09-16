@@ -27,7 +27,6 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): State {
-    // Determine error type based on error characteristics
     let errorType: 'network' | 'component' | 'unknown' = 'unknown';
     
     if (error.message.includes('fetch') || 

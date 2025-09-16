@@ -4,7 +4,7 @@
  */
 
 /**
- * Generate a UUID v4 correlation ID
+ * Generate a UUID correlation ID
  */
 export const generateCorrelationId = (): string => {
 	return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(

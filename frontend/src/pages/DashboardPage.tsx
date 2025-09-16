@@ -19,6 +19,7 @@ const DashboardPage = memo(() => {
 	const navigate = useNavigate();
 	const { handleError, clearError, hasError, error } = useErrorHandler();
 
+	// custom hooks to manage state of dashboard
 	const {
 		isPolling,
 		lastUpdate,
@@ -59,8 +60,6 @@ const DashboardPage = memo(() => {
 	// Handle real-time payout updates from polling
 	useEffect(() => {
 		const unsubscribe = onPayoutUpdate(() => {
-			// Simply reload the current page when polling detects changes
-			// The polling service now fetches the correct page, so we can trust the results
 			loadPayouts(currentPage);
 		});
 
@@ -136,9 +135,7 @@ const DashboardPage = memo(() => {
 		);
 	}
 
-	if (!user) {
-		return null; // This should not happen due to ProtectedRoute
-	}
+	
 
 	return (
 		<div className={styles.dashboardRoot}>

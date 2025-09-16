@@ -12,7 +12,7 @@ const initialListState: PayoutListState = {
 
 export const usePayoutList = () => {
 	const [listState, setListState] = useState<PayoutListState>(initialListState);
-
+	// E.g: stable functions  
 	const loadPayouts = useCallback(
 		async (page: number = listState.currentPage, perPage: number = 10) => {
 			setListState((prev) => ({
@@ -43,6 +43,7 @@ export const usePayoutList = () => {
 		[]
 	);
 
+	// E.g: unstable function
 	const refreshPayouts = useCallback(() => {
 		loadPayouts(listState.currentPage);
 	}, [loadPayouts, listState.currentPage]);

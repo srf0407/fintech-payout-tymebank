@@ -30,8 +30,8 @@ export interface RetryResult<T> {
 class RetryService {
   private readonly DEFAULT_CONFIG: RetryConfig = {
     maxRetries: 3,
-    baseDelay: 1000, // 1 second
-    maxDelay: 30000, // 30 seconds
+    baseDelay: 1000,
+    maxDelay: 30000, 
     exponentialBase: 2,
     jitter: true,
   };
@@ -40,9 +40,8 @@ class RetryService {
    * Check if an error is retryable based on HTTP status and backend error codes
    */
   private isRetryableError(error: any): boolean {
-    // Check if it's a fetch error (network issues)
+    // Check if it's a fetch error (network issues) 
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      // For "Failed to fetch" errors, don't retry - backend is likely down
       if (error.message.includes('Failed to fetch')) {
         return false;
       }
@@ -54,9 +53,8 @@ class RetryService {
       error.message.includes('ERR_CONNECTION_REFUSED') ||
       error.message.includes('ERR_NETWORK_CHANGED') ||
       error.message.includes('ERR_INTERNET_DISCONNECTED') ||
-      error.message.includes('ERR_CONNECTION_TIMED_OUT') ||
-      error.message.includes('Failed to fetch') ||
-      error.message.includes('NetworkError') ||
+      error.message.includes('ERR_CONNECTION_TIMED_OUT') ||     
+     // error.message.includes('NetworkError') || originally included picked up in code review *incorrect*
       error.message.includes('connection')
     )) {
       return true;
@@ -136,7 +134,7 @@ class RetryService {
     try {
       const response = await fetch(`${baseUrl}/health`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000) // 5 second timeout
+        signal: AbortSignal.timeout(5000) 
       });
       return response.ok;
     } catch (error) {
@@ -148,18 +146,16 @@ class RetryService {
    * Calculate delay with exponential backoff and jitter
    */
   private calculateDelay(attempt: number, config: RetryConfig, retryAfter?: number): number {
-    // Use backend retry_after if provided
     if (retryAfter) {
-      return retryAfter * 1000; // Convert to milliseconds
+      return retryAfter * 1000;
     }
 
-    // Calculate exponential backoff
+
     let delay = config.baseDelay * Math.pow(config.exponentialBase, attempt);
     delay = Math.min(delay, config.maxDelay);
 
-    // Add jitter to prevent thundering herd
     if (config.jitter) {
-      const jitterFactor = 0.5 + Math.random() * 0.5; // 0.5 to 1.0
+      const jitterFactor = 0.5 + Math.random() * 0.5; 
       delay *= jitterFactor;
     }
 
@@ -189,7 +185,6 @@ class RetryService {
       try {
         const result = await fn();
         
-        // Log success after retries
         if (attempt > 0) {
           console.log(`Retry successful after ${attempt} attempts`, {
             correlationId,
@@ -205,12 +200,9 @@ class RetryService {
       } catch (error: any) {
         lastError = error;
 
-        // Extract backend error if it's a fetch response
         if (error.response) {
           backendError = await this.extractBackendError(error.response);
         }
-
-        // Check if error is retryable
         if (!this.isRetryableError(error)) {
           console.warn('Non-retryable error encountered', {
             correlationId,
@@ -218,7 +210,6 @@ class RetryService {
             attempt: attempt + 1,
           });
           
-          // Convert "Failed to fetch" to a more specific error
           let finalError = error;
           if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
             finalError = new Error('Server is currently unavailable. Please try again later.');
@@ -232,7 +223,6 @@ class RetryService {
           };
         }
 
-        // If this is the last attempt, return failure
         if (attempt === finalConfig.maxRetries) {
           console.error('All retry attempts exhausted', {
             correlationId,
@@ -241,7 +231,6 @@ class RetryService {
             backendError,
           });
 
-          // Convert "Failed to fetch" to a more specific error
           let finalError = error;
           if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
             finalError = new Error('Server is currently unavailable. Please try again later.');
@@ -255,7 +244,6 @@ class RetryService {
           };
         }
 
-        // Calculate delay for next attempt
         const delay = this.calculateDelay(
           attempt,
           finalConfig,
@@ -271,12 +259,10 @@ class RetryService {
           delayMs: delay,
         });
 
-        // Wait before next attempt
         await this.sleep(delay);
       }
     }
 
-    // This should never be reached, but TypeScript requires it
     return {
       success: false,
       error: lastError,

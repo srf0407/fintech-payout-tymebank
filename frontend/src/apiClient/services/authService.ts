@@ -105,16 +105,14 @@ class AuthService {
 		const result = await retryService.retry(
 			async () => {
 				const response = await fetch(`${this.baseUrl}/auth/me`, {
-					credentials: "include", // Include cookies
+					credentials: "include", 
 					headers,
-					signal: AbortSignal.timeout(5000), // 5 second timeout
+					signal: AbortSignal.timeout(5000), 
 				});
 
 				if (!response.ok) {
 					if (response.status === 401) {
-						// Token expired, try to refresh
 						await this.refreshToken();
-						// Recursive call - this will also use retry logic
 						return this.getCurrentUser();
 					}
 					const errorData: AuthError = await response.json();
@@ -133,7 +131,7 @@ class AuthService {
 
 				const userData: UserProfile = await response.json();
 
-				// Update stored user data
+
 				sessionStorage.setItem(this.userKey, JSON.stringify(userData));
 
 				return userData;

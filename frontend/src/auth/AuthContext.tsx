@@ -22,12 +22,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// Initialize authentication state on mount
 	useEffect(() => {
 		const initializeAuth = async () => {
 			setIsLoading(true);
 			try {
-				// Try to get current user (this will check the cookie)
 				const freshUser = await authService.getCurrentUser();
 				setUser(freshUser);
 			} catch (err) {
