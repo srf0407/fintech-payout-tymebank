@@ -53,7 +53,7 @@ export interface PayoutsListResponse {
 }
 
 export interface ApiError {
-	detail: string;
+	detail: string | { message?: string; [key: string]: any };
 	correlation_id?: string;
 }
 

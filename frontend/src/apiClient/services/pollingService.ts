@@ -203,24 +203,12 @@ class PollingService {
 			};
 
 			if (result.error instanceof Error) {
-				if (isServerUnavailableError(result.error.message)) {
-					errorMessage = "Server is currently unavailable. Please try again later.";
-				} else {
-					errorMessage = result.error.message;
-				}
-			} else if (typeof result.error === 'string') {
-				if (isServerUnavailableError(result.error)) {
-					errorMessage = "Server is currently unavailable. Please try again later.";
-				} else {
-					errorMessage = result.error;
-				}
-			} else if (result.error && typeof result.error === 'object') {
-				// Handle fetch errors, network errors, etc.
+				// Check for specific error types
 				if (result.error.name === 'TypeError' || result.error.name === 'AbortError') {
 					errorMessage = "Server is currently unavailable. Please try again later.";
-				} else if (result.error.message && isServerUnavailableError(result.error.message)) {
+				} else if (isServerUnavailableError(result.error.message)) {
 					errorMessage = "Server is currently unavailable. Please try again later.";
-				} else if (result.error.message) {
+				} else {
 					errorMessage = result.error.message;
 				}
 			}

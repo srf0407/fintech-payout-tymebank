@@ -151,7 +151,16 @@ class PayoutService {
 
 				if (!response.ok) {
 					const errorData: ApiError = await response.json();
-					const error = new Error(errorData.detail || "Failed to fetch payout");
+					// Convert errorData.detail to string safely
+					let errorMessage = "Failed to fetch payout";
+					if (errorData.detail) {
+						if (typeof errorData.detail === 'string') {
+							errorMessage = errorData.detail;
+						} else if (typeof errorData.detail === 'object') {
+							errorMessage = errorData.detail.message || JSON.stringify(errorData.detail);
+						}
+					}
+					const error = new Error(errorMessage);
 					(error as any).status = response.status;
 					(error as any).response = response;
 					throw error;
