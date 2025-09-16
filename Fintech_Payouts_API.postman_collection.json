@@ -1,0 +1,1178 @@
+{
+  "info": {
+    "name": "Fintech Payouts API",
+    "description": "A comprehensive collection for testing the Fintech Payouts API with OAuth 2.0 authentication, payout management, and webhook processing.",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "frontendUrl",
+      "value": "http://localhost:5173",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "correlationId",
+      "value": "test-{{$timestamp}}",
+      "type": "string"
+    },
+    {
+      "key": "idempotencyKey",
+      "value": "payout-{{$timestamp}}",
+      "type": "string"
+    },
+    {
+      "key": "webhookSecret",
+      "value": "your-webhook-secret-minimum-32-characters-long",
+      "type": "string"
+    },
+    {
+      "key": "state",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Health check returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has required fields', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "    pm.expect(jsonData).to.have.property('timestamp');",
+                  "    pm.expect(jsonData).to.have.property('version');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Initiate OAuth Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"redirect_uri\": \"{{baseUrl}}/auth/callback\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('OAuth login returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has authorization URL', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('authorization_url');",
+                  "    pm.expect(jsonData).to.have.property('state');",
+                  "    pm.expect(jsonData).to.have.property('code_verifier');",
+                  "    pm.expect(jsonData).to.have.property('expires_at');",
+                  "});",
+                  "",
+                  "// Extract state parameter for callback",
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('state', jsonData.state);",
+                  "    console.log('State extracted:', jsonData.state);",
+                  "    console.log('Authorization URL:', jsonData.authorization_url);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "OAuth Callback (Simulated)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/callback?code=4/0AX4XfWh...&state={{state}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "4/0AX4XfWh..."
+                },
+                {
+                  "key": "state",
+                  "value": "{{state}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Get user returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has user data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('email');",
+                  "    pm.expect(jsonData).to.have.property('google_id');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Token refresh returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has new token', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('access_token');",
+                  "    pm.expect(jsonData).to.have.property('expires_in');",
+                  "    pm.expect(jsonData).to.have.property('user');",
+                  "});",
+                  "",
+                  "// Extract new token for subsequent requests",
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', jsonData.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correlation_id\": \"{{correlationId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Logout returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has logout message', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});",
+                  "",
+                  "// Clear token after logout",
+                  "pm.collectionVariables.set('accessToken', '');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Payouts",
+      "item": [
+        {
+          "name": "Create Payout - Basic",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}-001",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100.50,\n  \"currency\": \"USD\",\n  \"reference\": \"PAY-001\",\n  \"metadata_json\": {\n    \"description\": \"Payment for services\",\n    \"category\": \"business\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payouts/",
+              "host": ["{{baseUrl}}"],
+              "path": ["payouts", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Payout creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has payout data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('amount');",
+                  "    pm.expect(jsonData).to.have.property('currency');",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "    pm.expect(jsonData).to.have.property('idempotency_key');",
+                  "});",
+                  "",
+                  "// Store payout ID for subsequent tests",
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('payoutId', jsonData.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Payout - EUR Currency",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}-002",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 250.75,\n  \"currency\": \"EUR\",\n  \"reference\": \"PAY-002\",\n  \"metadata_json\": {\n    \"description\": \"International payment\",\n    \"category\": \"international\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payouts/",
+              "host": ["{{baseUrl}}"],
+              "path": ["payouts", ""]
+            }
+          }
+        },
+        {
+          "name": "Create Payout - Large Amount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}-003",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 10000.00,\n  \"currency\": \"USD\",\n  \"reference\": \"PAY-003\",\n  \"metadata_json\": {\n    \"description\": \"Large business payment\",\n    \"category\": \"business\",\n    \"priority\": \"high\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payouts/",
+              "host": ["{{baseUrl}}"],
+              "path": ["payouts", ""]
+            }
+          }
+        },
+        {
+          "name": "Create Payout - Minimal Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}-004",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 50.00,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payouts/",
+              "host": ["{{baseUrl}}"],
+              "path": ["payouts", ""]
+            }
+          }
+        },
+        {
+          "name": "List Payouts - First Page",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payouts/?page=1&page_size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["payouts", ""],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('List payouts returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has pagination data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('items');",
+                  "    pm.expect(jsonData).to.have.property('page');",
+                  "    pm.expect(jsonData).to.have.property('page_size');",
+                  "    pm.expect(jsonData).to.have.property('total');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Payouts - Second Page",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payouts/?page=2&page_size=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["payouts", ""],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "2"
+                },
+                {
+                  "key": "page_size",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Payouts - Default Pagination",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payouts/",
+              "host": ["{{baseUrl}}"],
+              "path": ["payouts", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Payment Succeeded Webhook - HMAC SHA256",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Signature",
+                "value": "sha256=calculated-hmac-signature",
+                "type": "text"
+              },
+              {
+                "key": "X-Signature-Type",
+                "value": "hmac_sha256",
+                "type": "text"
+              },
+              {
+                "key": "X-Timestamp",
+                "value": "{{$timestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_type\": \"payment.succeeded\",\n  \"event_id\": \"evt_{{timestamp}}\",\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"payment_id\": \"pay_{{timestamp}}\",\n  \"reference\": \"PAY-001\",\n  \"status\": \"succeeded\",\n  \"amount\": 100.50,\n  \"currency\": \"USD\",\n  \"error_code\": null,\n  \"error_message\": null,\n  \"metadata\": {\n    \"provider\": \"mock_provider\",\n    \"processing_time\": \"2.5s\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["webhooks", "payments"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Webhook returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success message', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('success');",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment Failed Webhook - HMAC SHA1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Signature",
+                "value": "sha1=calculated-hmac-signature",
+                "type": "text"
+              },
+              {
+                "key": "X-Signature-Type",
+                "value": "hmac_sha1",
+                "type": "text"
+              },
+              {
+                "key": "X-Timestamp",
+                "value": "{{$timestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_type\": \"payment.failed\",\n  \"event_id\": \"evt_{{timestamp}}\",\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"payment_id\": \"pay_{{timestamp}}\",\n  \"reference\": \"PAY-002\",\n  \"status\": \"failed\",\n  \"amount\": 250.75,\n  \"currency\": \"EUR\",\n  \"error_code\": \"INSUFFICIENT_FUNDS\",\n  \"error_message\": \"Account has insufficient funds\",\n  \"metadata\": {\n    \"provider\": \"mock_provider\",\n    \"retry_count\": 3\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["webhooks", "payments"]
+            }
+          }
+        },
+        {
+          "name": "Payment Updated Webhook - JWT Signature",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Signature",
+                "value": "Bearer jwt-token-here",
+                "type": "text"
+              },
+              {
+                "key": "X-Signature-Type",
+                "value": "jwt",
+                "type": "text"
+              },
+              {
+                "key": "X-Timestamp",
+                "value": "{{$timestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_type\": \"payment.updated\",\n  \"event_id\": \"evt_{{timestamp}}\",\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"payment_id\": \"pay_{{timestamp}}\",\n  \"reference\": \"PAY-003\",\n  \"status\": \"processing\",\n  \"amount\": 1000.00,\n  \"currency\": \"USD\",\n  \"error_code\": null,\n  \"error_message\": null,\n  \"metadata\": {\n    \"provider\": \"mock_provider\",\n    \"status_change\": \"pending_to_processing\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["webhooks", "payments"]
+            }
+          }
+        },
+        {
+          "name": "Payment Cancelled Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Signature",
+                "value": "sha256=calculated-hmac-signature",
+                "type": "text"
+              },
+              {
+                "key": "X-Signature-Type",
+                "value": "hmac_sha256",
+                "type": "text"
+              },
+              {
+                "key": "X-Timestamp",
+                "value": "{{$timestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_type\": \"payment.cancelled\",\n  \"event_id\": \"evt_{{timestamp}}\",\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"payment_id\": \"pay_{{timestamp}}\",\n  \"reference\": \"PAY-004\",\n  \"status\": \"cancelled\",\n  \"amount\": 500.00,\n  \"currency\": \"USD\",\n  \"error_code\": \"USER_CANCELLED\",\n  \"error_message\": \"Payment cancelled by user\",\n  \"metadata\": {\n    \"provider\": \"mock_provider\",\n    \"cancellation_reason\": \"user_request\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["webhooks", "payments"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Scenarios",
+      "item": [
+        {
+          "name": "Invalid Login Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invalid_field\": \"test\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Invalid request returns 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unauthorized Access",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Unauthorized access returns 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid Token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer invalid-token-here",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Invalid token returns 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Payout - Missing Required Fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}-error-001",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100.50\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payouts/",
+              "host": ["{{baseUrl}}"],
+              "path": ["payouts", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Missing fields returns 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Payout - Invalid Currency",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}-error-002",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100.50,\n  \"currency\": \"INVALID\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payouts/",
+              "host": ["{{baseUrl}}"],
+              "path": ["payouts", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Invalid currency returns 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Payout - Negative Amount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}-error-003",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": -100.50,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payouts/",
+              "host": ["{{baseUrl}}"],
+              "path": ["payouts", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Negative amount returns 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Webhook - Missing Signature",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_type\": \"payment.succeeded\",\n  \"event_id\": \"evt_{{timestamp}}\",\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"payment_id\": \"pay_{{timestamp}}\",\n  \"reference\": \"PAY-005\",\n  \"status\": \"succeeded\",\n  \"amount\": 100.50,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["webhooks", "payments"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Missing signature returns 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Webhook - Invalid Signature",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Signature",
+                "value": "sha256=invalid-signature-here",
+                "type": "text"
+              },
+              {
+                "key": "X-Signature-Type",
+                "value": "hmac_sha256",
+                "type": "text"
+              },
+              {
+                "key": "X-Timestamp",
+                "value": "{{$timestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_type\": \"payment.succeeded\",\n  \"event_id\": \"evt_{{timestamp}}\",\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"payment_id\": \"pay_{{timestamp}}\",\n  \"reference\": \"PAY-006\",\n  \"status\": \"succeeded\",\n  \"amount\": 100.50,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["webhooks", "payments"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Invalid signature returns 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Integration Flow",
+      "item": [
+        {
+          "name": "Complete User Journey",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "integration-test-{{$timestamp}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Set up integration test variables",
+                  "pm.collectionVariables.set('correlationId', 'integration-test-' + Date.now());",
+                  "pm.collectionVariables.set('idempotencyKey', 'integration-' + Date.now());"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
