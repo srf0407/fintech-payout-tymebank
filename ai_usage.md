@@ -6,15 +6,16 @@ This document details the AI-assisted development process for building a secure,
 
 ## AI Tools and Agents Used
 
+### Planning and Architecture: ChatGPT
+- **Usage**: Primary tool for project planning, architecture design, and high-level strategy
+- **Context**: Used for initial project planning, architectural decisions, and technical approach validation
 ### Primary AI Assistant: Cursor
 - **Usage**: Main tool for actual code writing, implementation, and debugging
 - **Context**: Used throughout the development process for code generation, refactoring, and problem-solving
 - **Features**: Leveraged Cursor's AI-powered code completion, chat functionality, and code suggestions
 - **Project Rules**: Created comprehensive development rules and guidelines via `.cursor/rules` to ensure consistent code quality and architectural patterns
 
-### Planning and Architecture: ChatGPT
-- **Usage**: Primary tool for project planning, architecture design, and high-level strategy
-- **Context**: Used for initial project planning, architectural decisions, and technical approach validation
+
 
 
 
@@ -220,6 +221,55 @@ The AI then produced a React component using MUI’s `TextField`, `Button`, and 
 - Centralized state management into a custom `usePayoutForm` hook for cleaner separation of concerns.  
 
 This iterative process ensured the AI’s contributions were aligned with my coding standards and produced a clean, maintainable component. When reviewing AI-generated code, I often spotted small issues or opportunities to simplify logic. Instead of prompting again, I fixed these by hand.  
+
+## Docker Compose Configuration with AI
+
+### Initial Docker Compose Creation Process
+
+**Context**: I needed to set up a local development environment with PostgreSQL, so I used AI assistance to create the Docker Compose configuration, but went through a detailed line-by-line review process to ensure each configuration choice was appropriate for the project.
+
+**AI Prompt Used**:
+```
+Create a Docker Compose file for a FastAPI fintech application that needs:
+- PostgreSQL database
+- Environment variables from .env file
+```
+
+### Line-by-Line Analysis and Decision Making
+
+
+
+
+**Line 6: `restart: unless-stopped`**
+- **AI Choice**: Originally suggested "always" restart policy
+- **My Decision**: ❌ **Rejected** - Changed to "unless-stopped" for better development experience
+- **Reasoning**: 
+  - "always" would restart the container even when manually stopped, making debugging difficult
+  - "unless-stopped" ensures database restarts automatically if it crashes
+  - Won't restart if manually stopped (good for development workflow)
+  - Better than "on-failure" for a critical service like database
+  - Allows for clean shutdown and restart during development
+
+
+### Configuration Validation Process
+
+**Testing the Configuration**:
+After creating the Docker Compose file, I validated it by running the following commands:
+
+```bash
+# Start the database service
+docker-compose up -d
+
+# Check if the container is running
+docker ps
+
+# Verify the database is accessible
+docker exec -it fintech_postgres psql -U postgres -d postgres
+
+This practical testing confirmed that the configuration worked as expected and provided a smooth development experience.
+
+```
+
 
 ### Conclusion
 Throughout this project, AI served as a valuable assistant for generating code, scaffolding components, and exploring design options. However, its outputs were never accepted blindly. Every contribution was validated against project requirements, security standards, and maintainability goals. By applying strict review, rejecting misaligned outputs, iterating on prompts, and making manual fixes where needed, I ensured the final system was clean, secure, and production-ready. The AI accelerated development, but the engineering responsibility and quality assurance always remained firmly with me.
