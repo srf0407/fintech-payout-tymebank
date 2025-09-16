@@ -23,7 +23,6 @@ class PayoutService {
 		this.baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
 	}
 
-
 	async createPayout(
 		payoutData: CreatePayoutRequest
 	): Promise<CreatePayoutResponse> {
@@ -39,7 +38,7 @@ class PayoutService {
 			async () => {
 				const response = await fetch(`${this.baseUrl}/payouts`, {
 					method: "POST",
-					credentials: "include", 
+					credentials: "include",
 					headers,
 					body: JSON.stringify(bodyData),
 					signal: AbortSignal.timeout(10000),
@@ -50,18 +49,23 @@ class PayoutService {
 					// Convert errorData.detail to string safely
 					let errorMessage = "Failed to create payout";
 					if (errorData.detail) {
-						if (typeof errorData.detail === 'string') {
+						if (typeof errorData.detail === "string") {
 							errorMessage = errorData.detail;
-						} else if (typeof errorData.detail === 'object') {
-							errorMessage = errorData.detail.message || JSON.stringify(errorData.detail);
+						} else if (typeof errorData.detail === "object") {
+							errorMessage =
+								errorData.detail.message || JSON.stringify(errorData.detail);
 						}
 					}
-					
+
 					// Convert session expiration errors to server unavailability when server is down
-					if (errorMessage.includes('session has expired') || errorMessage.includes('expired')) {
-						errorMessage = "Server is currently unavailable. Please try again later.";
+					if (
+						errorMessage.includes("session has expired") ||
+						errorMessage.includes("expired")
+					) {
+						errorMessage =
+							"Server is currently unavailable. Please try again later.";
 					}
-					
+
 					const error = new Error(errorMessage);
 					(error as any).status = response.status;
 					(error as any).response = response;
@@ -82,6 +86,16 @@ class PayoutService {
 		return result.data!;
 	}
 
+	/**
+	 * Current approach: Simple pagination with query parameters
+	
+	 * 3. Real-time subscriptions:Server-Sent Events for live updates instead of polling
+	 *    - Instant updates, better UX, lower server load
+	 *    - Rejected: Additional complexity, polling works fine for MVP
+	 * 
+	 * 
+	 * Current approach chosen for simplicity and rapid development.
+	 */
 	async getPayouts(
 		page: number = 1,
 		perPage: number = 10
@@ -105,18 +119,23 @@ class PayoutService {
 					// Convert errorData.detail to string safely
 					let errorMessage = "Failed to fetch payouts";
 					if (errorData.detail) {
-						if (typeof errorData.detail === 'string') {
+						if (typeof errorData.detail === "string") {
 							errorMessage = errorData.detail;
-						} else if (typeof errorData.detail === 'object') {
-							errorMessage = errorData.detail.message || JSON.stringify(errorData.detail);
+						} else if (typeof errorData.detail === "object") {
+							errorMessage =
+								errorData.detail.message || JSON.stringify(errorData.detail);
 						}
 					}
-					
+
 					// Convert session expiration errors to server unavailability when server is down
-					if (errorMessage.includes('session has expired') || errorMessage.includes('expired')) {
-						errorMessage = "Server is currently unavailable. Please try again later.";
+					if (
+						errorMessage.includes("session has expired") ||
+						errorMessage.includes("expired")
+					) {
+						errorMessage =
+							"Server is currently unavailable. Please try again later.";
 					}
-					
+
 					const error = new Error(errorMessage);
 					(error as any).status = response.status;
 					(error as any).response = response;
@@ -137,56 +156,53 @@ class PayoutService {
 		return result.data!;
 	}
 
+	// Ai hallucination no get payout end point even on be
+	// async getPayout(payoutId: string): Promise<Payout> {
+	// 	const headers = createHeadersWithCorrelationId();
+	// 	const correlationId = headers["X-Correlation-ID"];
 
-	async getPayout(payoutId: string): Promise<Payout> {
-		const headers = createHeadersWithCorrelationId();
-		const correlationId = headers["X-Correlation-ID"];
+	// 	const result = await retryService.retry(
+	// 		async () => {
+	// 			const response = await fetch(`${this.baseUrl}/payouts/${payoutId}`, {
+	// 				credentials: "include", // Include cookies
+	// 				headers,
+	// 			});
 
-		const result = await retryService.retry(
-			async () => {
-				const response = await fetch(`${this.baseUrl}/payouts/${payoutId}`, {
-					credentials: "include", // Include cookies
-					headers,
-				});
+	// 			if (!response.ok) {
+	// 					const errorData: ApiError = await response.json();
+	// 					let errorMessage = "Failed to fetch payout";
+	// 					if (errorData.detail) {
+	// 						if (typeof errorData.detail === "string") {
+	// 							errorMessage = errorData.detail;
+	// 						} else if (typeof errorData.detail === "object") {
+	// 							errorMessage =
+	// 								errorData.detail.message || JSON.stringify(errorData.detail);
+	// 						}
+	// 					}
+	// 					const error = new Error(errorMessage);
+	// 					(error as any).status = response.status;
+	// 					(error as any).response = response;
+	// 					throw error;
+	// 			}
 
-				if (!response.ok) {
-						const errorData: ApiError = await response.json();
-						let errorMessage = "Failed to fetch payout";
-						if (errorData.detail) {
-							if (typeof errorData.detail === "string") {
-								errorMessage = errorData.detail;
-							} else if (typeof errorData.detail === "object") {
-								errorMessage =
-									errorData.detail.message || JSON.stringify(errorData.detail);
-							}
-						}
-						const error = new Error(errorMessage);
-						(error as any).status = response.status;
-						(error as any).response = response;
-						throw error;
-				}
+	// 			return await response.json();
+	// 		},
+	// 		RETRY_CONFIGS.STANDARD,
+	// 		correlationId
+	// 	);
 
-				return await response.json();
-			},
-			RETRY_CONFIGS.STANDARD,
-			correlationId
-		);
+	// 	if (!result.success) {
+	// 		console.error("Get payout failed after retries:", result.error);
+	// 		throw result.error;
+	// 	}
 
-		if (!result.success) {
-			console.error("Get payout failed after retries:", result.error);
-			throw result.error;
-		}
-
-		return result.data!;
-	}
+	// 	return result.data!;
+	// }
 
 	generateIdempotencyKey(): string {
 		return `payout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 	}
-	validatePayoutData(
-		amount: number,
-		currency: Currency
-	): ValidationResult {
+	validatePayoutData(amount: number, currency: Currency): ValidationResult {
 		if (amount <= 0) {
 			return { isValid: false, error: "Amount must be greater than 0" };
 		}

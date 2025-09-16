@@ -29,7 +29,6 @@ const LoginPage = memo(() => {
 		const urlParams = new URLSearchParams(window.location.search);
 		const urlError = urlParams.get("error");
 		if (urlError) {
-			// Convert URL error to user-friendly message
 			let errorMessage = "";
 			switch (urlError) {
 				case "oauth_failed":
@@ -51,13 +50,11 @@ const LoginPage = memo(() => {
 					errorMessage = `Authentication failed: ${urlError}`;
 			}
 			
-			// Set error in auth context
-			clearError(); // Clear any existing error first
+			clearError(); 
 			setTimeout(() => {
 				setError(errorMessage);
 			}, 100);
 			
-			// Clean up URL
 			window.history.replaceState({}, document.title, window.location.pathname);
 		}
 	}, [clearError, setError]);

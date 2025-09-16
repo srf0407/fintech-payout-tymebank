@@ -51,7 +51,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 				authService.redirectToOAuth(authData.authorization_url);
 			} catch (err) {
 				if (err instanceof Error && err.message.includes("BACKEND_UNAVAILABLE")) {
-					// Extract user-friendly message
 					const errorMessage = err.message.split(":")[1] || "The server is currently unavailable. Please try again in a moment.";
 					setError(errorMessage);
 				} else {
