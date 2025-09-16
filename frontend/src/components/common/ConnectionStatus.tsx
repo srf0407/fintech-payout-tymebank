@@ -6,11 +6,9 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Chip, Typography, Button, Alert } from '@mui/material';
 import { 
-  Wifi, 
   WifiOff, 
   Refresh, 
-  CheckCircle, 
-  Error as ErrorIcon 
+  CheckCircle 
 } from '@mui/icons-material';
 
 export interface ConnectionStatusProps {

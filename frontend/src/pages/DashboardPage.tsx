@@ -161,18 +161,7 @@ const DashboardPage = memo(() => {
 				)}
 				{pollingError && (
 					<Alert severity='warning' sx={{ mb: 2, maxWidth: "400px" }}>
-						Update error: {(() => {
-							if (typeof pollingError === 'string') {
-								return pollingError;
-							}
-							if (pollingError instanceof Error) {
-								return pollingError.message;
-							}
-							if (pollingError && typeof pollingError === 'object' && pollingError.message) {
-								return pollingError.message;
-							}
-							return "Server is currently unavailable. Please try again later.";
-						})()}
+						Update error: {pollingError}
 					</Alert>
 				)}
 

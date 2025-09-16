@@ -14,11 +14,13 @@ import type { PayoutFormProps } from '../../types';
 import styles from './PayoutForm.module.css';
 
 const PayoutForm = memo<PayoutFormProps>(({ 
+  //re-renders when props below change
   onSubmit, 
   isLoading = false, 
   error, 
   onErrorChange 
 }) => {
+  //immutable within a render 
   const {
     formState,
     updateAmount,

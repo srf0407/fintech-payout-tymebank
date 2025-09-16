@@ -216,7 +216,6 @@ class PollingService {
 			this.error = errorMessage;
 			this.notifyStatusChange();
 
-			// On error, wait longer before next poll
 			if (this.isPolling) {
 				this.pollInterval = window.setTimeout(() => {
 					if (this.isPolling) {

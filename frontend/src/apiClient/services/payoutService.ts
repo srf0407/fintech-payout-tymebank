@@ -39,10 +39,10 @@ class PayoutService {
 			async () => {
 				const response = await fetch(`${this.baseUrl}/payouts`, {
 					method: "POST",
-					credentials: "include", // Include cookies
+					credentials: "include", 
 					headers,
 					body: JSON.stringify(bodyData),
-					signal: AbortSignal.timeout(10000), // 10 second timeout for creation
+					signal: AbortSignal.timeout(10000),
 				});
 
 				if (!response.ok) {
@@ -150,20 +150,20 @@ class PayoutService {
 				});
 
 				if (!response.ok) {
-					const errorData: ApiError = await response.json();
-					// Convert errorData.detail to string safely
-					let errorMessage = "Failed to fetch payout";
-					if (errorData.detail) {
-						if (typeof errorData.detail === 'string') {
-							errorMessage = errorData.detail;
-						} else if (typeof errorData.detail === 'object') {
-							errorMessage = errorData.detail.message || JSON.stringify(errorData.detail);
+						const errorData: ApiError = await response.json();
+						let errorMessage = "Failed to fetch payout";
+						if (errorData.detail) {
+							if (typeof errorData.detail === "string") {
+								errorMessage = errorData.detail;
+							} else if (typeof errorData.detail === "object") {
+								errorMessage =
+									errorData.detail.message || JSON.stringify(errorData.detail);
+							}
 						}
-					}
-					const error = new Error(errorMessage);
-					(error as any).status = response.status;
-					(error as any).response = response;
-					throw error;
+						const error = new Error(errorMessage);
+						(error as any).status = response.status;
+						(error as any).response = response;
+						throw error;
 				}
 
 				return await response.json();
