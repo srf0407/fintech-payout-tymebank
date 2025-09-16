@@ -58,7 +58,7 @@ class AuthService {
 					method: "POST",
 					headers,
 					body: JSON.stringify({
-						redirect_uri: `${this.baseUrl}/auth/callback`,
+						redirect_uri: `${this.baseUrl}/auth/callback`, // URL where Google will send the user back after they complete authentication
 					}),
 				});
 
@@ -105,9 +105,9 @@ class AuthService {
 		const result = await retryService.retry(
 			async () => {
 				const response = await fetch(`${this.baseUrl}/auth/me`, {
-					credentials: "include", 
+					credentials: "include",
 					headers,
-					signal: AbortSignal.timeout(5000), 
+					signal: AbortSignal.timeout(5000),
 				});
 
 				if (!response.ok) {
@@ -118,7 +118,6 @@ class AuthService {
 					const errorData: AuthError = await response.json();
 					let errorMessage = errorData.error_description || "Failed to get user info";
 					
-					// Convert session expiration errors to server unavailability when server is down
 					if (errorMessage.includes('session has expired') || errorMessage.includes('expired')) {
 						errorMessage = "Server is currently unavailable. Please try again later.";
 					}

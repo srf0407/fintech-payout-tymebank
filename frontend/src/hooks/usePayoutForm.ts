@@ -12,6 +12,7 @@ const initialFormState: PayoutFormState = {
 export const usePayoutForm = () => {
   const [formState, setFormState] = useState<PayoutFormState>(initialFormState);
 
+  //use callback to stablize function never reloaded if mounted again
   const validateForm = useCallback((amount: number, currency: Currency): ValidationResult => {
     return payoutService.validatePayoutData(amount, currency);
   }, []);
