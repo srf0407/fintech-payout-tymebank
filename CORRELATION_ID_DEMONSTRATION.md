@@ -12,7 +12,7 @@ This demonstration follows a single payout creation request through the entire s
 
 ## 1. Frontend Request Initiation
 
-**Network Headers (Browser DevTools):**
+**Network Headers:**
 ```
 Request Method: POST
 URL: http://localhost:8000/payouts/
@@ -162,35 +162,83 @@ Frontend Request
 4. **Error Debugging**: Any failure can be traced back to the original request
 5. **Performance Monitoring**: Request duration tracked across all components
 
-## Implementation Details
 
-### Backend Middleware
-- Generates correlation ID if not provided
-- Propagates ID through all service calls
-- Includes ID in all log entries
-- Returns ID in response headers
-
-### Frontend Integration
-- Sends correlation ID in request headers
-- Receives correlation ID in response
-- Can use ID for client-side error tracking
-
-### Provider Integration
-- Maintains parent correlation ID
-- Generates child correlation ID for internal tracking
-- Includes both IDs in webhook payloads
-
-### Database Operations
-- All database operations include correlation ID
-- Audit trails maintain correlation context
-- Error logs include correlation for debugging
-
-## Observability Benefits
-
-1. **Request Tracing**: Complete request lifecycle visibility
-2. **Performance Analysis**: Identify bottlenecks across services
-3. **Error Correlation**: Link errors to specific user requests
-4. **Business Metrics**: Track payout success rates by correlation
-5. **Debugging**: Rapid issue resolution with full context
 
 This correlation ID implementation provides comprehensive observability across all system boundaries, enabling effective monitoring, debugging, and performance optimization in our fintech application.
+
+## Correlation ID Logic Summary
+
+### When New Correlation IDs Are Created
+
+• **Frontend Request Initiation**
+  - Every API request generates a new UUID via `correlationService.ts`
+  - Used in `createHeadersWithCorrelationId()` function
+  - Applied to all service calls (auth, payouts, etc.)
+
+• **Backend Middleware (Fallback)**
+  - Creates new UUID if `X-Correlation-ID` header is missing
+  - Implemented in `correlation_id_middleware()` in `main.py`
+  - Ensures every request has a correlation ID
+
+• **Service Layer (Fallback)**
+  - Services generate new IDs if correlation_id parameter is None
+  - Used in `payout_service.py`, `webhook_service.py`, etc.
+  - Provides last-resort ID generation
+
+### When Correlation IDs Are Passed Through
+
+• **Frontend → Backend**
+  - Frontend includes `X-Correlation-ID` header in all requests
+  - Backend extracts from headers in middleware
+  - ID flows through entire request lifecycle
+
+• **Backend Middleware → Context**
+  - Middleware sets correlation ID in Python `contextvars`
+  - Available throughout entire request via `get_correlation_id()`
+  - Thread-safe storage for async operations
+
+• **Backend Services → Database**
+  - Correlation ID stored in `Payout` model as UUID field
+  - Enables database-level audit trails
+  - Links database records to original requests
+
+• **Backend → Third-Party Provider**
+  - Correlation ID passed to mock payment provider
+  - Provider maintains parent ID while generating child ID
+  - Both IDs logged for cross-service tracing
+
+• **Webhook Processing**
+  - Webhook receives correlation ID from provider
+  - Maintained through webhook event processing
+  - Links asynchronous events to original request
+
+• **Response Back to Frontend**
+  - Backend includes correlation ID in response headers
+  - Frontend receives ID for client-side tracking
+  - Enables end-to-end request correlation
+
+### Context Variable Management
+
+• **Thread-Safe Storage**
+  - Uses Python `contextvars.ContextVar` for correlation ID storage
+  - Automatically propagated through async/await boundaries
+  - No manual passing required between functions
+
+• **Automatic Logging**
+  - `add_correlation_id()` processor adds ID to all log entries
+  - Structured logging includes correlation context
+  - No manual correlation ID logging required
+
+• **Service Integration**
+  - All services automatically inherit correlation ID from context
+  - Database operations include correlation ID
+  - Error handling maintains correlation context
+
+### Key Implementation Points
+
+• **UUID Format**: All correlation IDs use standard UUID v4 format
+• **Header Name**: `X-Correlation-ID` (case-insensitive)
+• **Fallback Strategy**: Multiple fallback points ensure ID is always present
+• **Context Propagation**: Automatic propagation through async boundaries
+• **Database Storage**: Correlation ID stored as UUID in database records
+• **Cross-Service**: Provider services maintain parent-child correlation relationships
